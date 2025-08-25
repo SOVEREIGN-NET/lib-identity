@@ -1,0 +1,28 @@
+[package]
+name = "lib-identity"
+version = "0.1.0"
+edition = "2021"
+description = "ZHTP Identity Management - Zero-knowledge identity system with quantum-resistant cryptography and complete citizen onboarding"
+
+[dependencies]
+anyhow = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tokio = { version = "1.0", features = ["full"] }
+rand = "0.8"
+zeroize = { version = "1.6", features = ["derive"] }
+hex = "0.4"
+blake3 = "1.4"
+tracing = "0.1"
+bincode = "1.3"
+md5 = "0.7"
+sha2 = "0.10"
+zhtp-crypto = { path = "../zhtp-crypto" }
+zhtp-zk = { path = "../zhtp-zk" }
+
+[dev-dependencies]
+tokio-test = "0.4"
+
+[features]
+default = []
+browser-compat = []

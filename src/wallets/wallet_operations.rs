@@ -1,7 +1,7 @@
 //! Wallet operations from the original identity.rs
 
 use anyhow::Result;
-use zhtp_crypto::Hash;
+use lib_crypto::Hash;
 use crate::wallets::{WalletManager, WalletId};
 
 impl WalletManager {
@@ -142,7 +142,7 @@ impl WalletManager {
                         .as_secs()
                         .to_le_bytes(),
                 ].concat();
-                let ubi_hash = Hash::from_bytes(&zhtp_crypto::hash_blake3(&ubi_data));
+                let ubi_hash = Hash::from_bytes(&lib_crypto::hash_blake3(&ubi_data));
                 
                 wallet.add_transaction(ubi_hash.clone());
                 distribution_hashes.push(ubi_hash);
@@ -201,7 +201,7 @@ impl WalletManager {
                         .to_le_bytes(),
                 ].concat();
                 
-                let distribution_hash = Hash::from_bytes(&zhtp_crypto::hash_blake3(&distribution_data));
+                let distribution_hash = Hash::from_bytes(&lib_crypto::hash_blake3(&distribution_data));
                 distribution_hashes.push(distribution_hash);
             }
         }
@@ -291,7 +291,7 @@ impl WalletManager {
                 .to_le_bytes(),
         ].concat();
         
-        let transaction_hash = Hash::from_bytes(&zhtp_crypto::hash_blake3(&tx_data));
+        let transaction_hash = Hash::from_bytes(&lib_crypto::hash_blake3(&tx_data));
         
         // Get the new balances before constructing the result
         let new_from_balance = self.wallets.get(&transaction.from_wallet_id).unwrap().balance;
@@ -444,7 +444,7 @@ pub struct WalletHealthReport {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use zhtp_crypto::Hash;
+    use lib_crypto::Hash;
 
     #[test]
     fn test_ubi_distribution() {

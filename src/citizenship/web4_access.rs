@@ -66,14 +66,14 @@ impl Web4Access {
         ];
 
         for service in services {
-            let token = zhtp_crypto::hash_blake3(
+            let token = lib_crypto::hash_blake3(
                 &[identity_id.0.as_slice(), service.as_bytes(), &current_time.to_le_bytes()].concat()
             );
             service_tokens.insert(service.to_string(), hex::encode(token));
         }
 
         // Generate global access proof
-        let access_proof = zhtp_crypto::hash_blake3(
+        let access_proof = lib_crypto::hash_blake3(
             &[
                 identity_id.0.as_slice(),
                 "web4_full_access".as_bytes(),

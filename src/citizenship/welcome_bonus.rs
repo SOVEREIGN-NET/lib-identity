@@ -68,7 +68,7 @@ impl WelcomeBonus {
         )?;
 
         // Generate bonus proof
-        let bonus_proof = zhtp_crypto::hash_blake3(
+        let bonus_proof = lib_crypto::hash_blake3(
             &[
                 "welcome_bonus".as_bytes(),
                 identity_id.0.as_slice(),
@@ -117,7 +117,7 @@ impl WelcomeBonus {
     
     /// Verify bonus authenticity
     pub fn verify_bonus_proof(&self) -> bool {
-        let expected_proof = zhtp_crypto::hash_blake3(
+        let expected_proof = lib_crypto::hash_blake3(
             &[
                 "welcome_bonus".as_bytes(),
                 self.identity_id.0.as_slice(),

@@ -4,7 +4,7 @@
 
 use anyhow::{Result, anyhow};
 use std::collections::HashMap;
-use zhtp_crypto::Hash;
+use lib_crypto::Hash;
 use crate::types::IdentityId;
 use super::wallet_types::{WalletType, WalletId, QuantumWallet, WalletSummary};
 
@@ -150,7 +150,7 @@ impl WalletManager {
                 .as_secs()
                 .to_le_bytes(),
         ].concat();
-        let tx_hash = Hash::from_bytes(&zhtp_crypto::hash_blake3(&tx_data));
+        let tx_hash = Hash::from_bytes(&lib_crypto::hash_blake3(&tx_data));
         
         // Perform the transfer
         self.wallets.get_mut(from_wallet).unwrap().remove_funds(amount).map_err(|e| anyhow!(e))?;

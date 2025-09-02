@@ -93,7 +93,7 @@ pub fn setup_privacy_credentials(
         privacy_creds.age_verification = Some(AgeVerificationCredential {
             age_bracket,
             verification_date: timestamp,
-            issuer: "ZHTP_AGE_VERIFIER".to_string(),
+            issuer: "lib_AGE_VERIFIER".to_string(),
             proof_hash: generate_age_proof_hash(birth_year),
         });
 

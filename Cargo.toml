@@ -17,8 +17,8 @@ tracing = "0.1"
 bincode = "1.3"
 md5 = "0.7"
 sha2 = "0.10"
-zhtp-crypto = { path = "../zhtp-crypto" }
-zhtp-zk = { path = "../zhtp-zk" }
+lib-crypto = { path = "../lib-crypto" }
+lib-proofs = { path = "../lib-proofs" }
 
 [dev-dependencies]
 tokio-test = "0.4"

@@ -70,7 +70,7 @@ impl DaoRegistration {
         let voting_power = 1u64;
         
         // Generate DAO membership proof
-        let membership_proof = zhtp_crypto::hash_blake3(
+        let membership_proof = lib_crypto::hash_blake3(
             &[identity_id.0.as_slice(), &current_time.to_le_bytes()].concat()
         );
 

@@ -81,7 +81,7 @@ impl UbiRegistration {
         )?;
 
         // Generate UBI eligibility proof
-        let eligibility_proof = zhtp_crypto::hash_blake3(
+        let eligibility_proof = lib_crypto::hash_blake3(
             &[
                 identity_id.0.as_slice(),
                 ubi_wallet_id.0.as_slice(),

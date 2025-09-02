@@ -21,7 +21,7 @@ pub struct CrossPackageIntegration {
     integration_cache: HashMap<String, IntegrationResponse>,
 }
 
-/// Connection to zhtp-crypto package
+/// Connection to lib-crypto package
 #[derive(Debug, Clone)]
 pub struct CryptoConnection {
     pub endpoint: String,
@@ -30,7 +30,7 @@ pub struct CryptoConnection {
     pub quantum_ready: bool,
 }
 
-/// Connection to zhtp-zk package
+/// Connection to lib-proofs package
 #[derive(Debug, Clone)]
 pub struct ZkConnection {
     pub endpoint: String,
@@ -39,7 +39,7 @@ pub struct ZkConnection {
     pub proof_cache_size: usize,
 }
 
-/// Connection to zhtp-economics package
+/// Connection to lib-economy package
 #[derive(Debug, Clone)]
 pub struct EconomicsConnection {
     pub endpoint: String,
@@ -48,7 +48,7 @@ pub struct EconomicsConnection {
     pub market_data_fresh: bool,
 }
 
-/// Connection to zhtp-network package
+/// Connection to lib-network package
 #[derive(Debug, Clone)]
 pub struct NetworkConnection {
     pub endpoint: String,
@@ -132,7 +132,7 @@ impl CrossPackageIntegration {
     async fn initialize_crypto_connection(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         // Authenticate with crypto service
         let auth_request = CrossPackageRequest {
-            target_package: "zhtp-crypto".to_string(),
+            target_package: "lib-crypto".to_string(),
             operation: "authenticate".to_string(),
             parameters: serde_json::json!({
                 "service": "lib-identity",
@@ -169,7 +169,7 @@ impl CrossPackageIntegration {
     async fn initialize_zk_connection(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         // Load ZK circuits for identity verification
         let circuit_request = CrossPackageRequest {
-            target_package: "zhtp-zk".to_string(),
+            target_package: "lib-proofs".to_string(),
             operation: "load_circuits".to_string(),
             parameters: serde_json::json!({
                 "circuits": ["identity_proof", "citizenship_proof", "privacy_proof"],
@@ -205,7 +205,7 @@ impl CrossPackageIntegration {
     async fn initialize_economics_connection(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         // Connect to UBI and economic systems
         let econ_request = CrossPackageRequest {
-            target_package: "zhtp-economics".to_string(),
+            target_package: "lib-economy".to_string(),
             operation: "connect_ubi_system".to_string(),
             parameters: serde_json::json!({
                 "service": "lib-identity",
@@ -244,7 +244,7 @@ impl CrossPackageIntegration {
     async fn initialize_network_connection(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         // Connect to ZHTP mesh network
         let network_request = CrossPackageRequest {
-            target_package: "zhtp-network".to_string(),
+            target_package: "lib-network".to_string(),
             operation: "register_service".to_string(),
             parameters: serde_json::json!({
                 "service": "lib-identity",
@@ -315,7 +315,7 @@ impl CrossPackageIntegration {
         }
 
         let proof_request = CrossPackageRequest {
-            target_package: "zhtp-zk".to_string(),
+            target_package: "lib-proofs".to_string(),
             operation: "generate_identity_proof".to_string(),
             parameters: serde_json::json!({
                 "identity_id": identity.id,
@@ -348,7 +348,7 @@ impl CrossPackageIntegration {
         }
 
         let eligibility_request = CrossPackageRequest {
-            target_package: "zhtp-economics".to_string(),
+            target_package: "lib-economy".to_string(),
             operation: "check_ubi_eligibility".to_string(),
             parameters: serde_json::json!({
                 "identity_id": identity_id,
@@ -377,7 +377,7 @@ impl CrossPackageIntegration {
         }
 
         let payment_request = CrossPackageRequest {
-            target_package: "zhtp-economics".to_string(),
+            target_package: "lib-economy".to_string(),
             operation: "distribute_ubi".to_string(),
             parameters: serde_json::json!({
                 "identity_id": identity_id,
@@ -435,35 +435,35 @@ impl CrossPackageIntegration {
 
         // Simulate successful responses based on operation
         let (success, data) = match (request.target_package.as_str(), request.operation.as_str()) {
-            ("zhtp-crypto", "authenticate") => (true, serde_json::json!({
+            ("lib-crypto", "authenticate") => (true, serde_json::json!({
                 "authenticated": true,
                 "quantum_ready": true,
                 "capabilities": ["post_quantum", "signing", "verification"]
             })),
-            ("zhtp-zk", "load_circuits") => (true, serde_json::json!({
+            ("lib-proofs", "load_circuits") => (true, serde_json::json!({
                 "circuits_loaded": 3,
                 "proof_cache_size": 1000,
                 "ready": true
             })),
-            ("zhtp-economics", "connect_ubi_system") => (true, serde_json::json!({
+            ("lib-economy", "connect_ubi_system") => (true, serde_json::json!({
                 "ubi_system_active": true,
                 "market_data_fresh": true,
                 "monthly_ubi_amount": 1000
             })),
-            ("zhtp-network", "register_service") => (true, serde_json::json!({
+            ("lib-network", "register_service") => (true, serde_json::json!({
                 "registered": true,
                 "peer_count": 1247,
                 "mesh_health": 0.87
             })),
-            ("zhtp-zk", "generate_identity_proof") => (true, serde_json::json!({
+            ("lib-proofs", "generate_identity_proof") => (true, serde_json::json!({
                 "proof": "deadbeef1234567890abcdef",
                 "verification_key": "abcdef1234567890deadbeef"
             })),
-            ("zhtp-economics", "check_ubi_eligibility") => (true, serde_json::json!({
+            ("lib-economy", "check_ubi_eligibility") => (true, serde_json::json!({
                 "eligible": true,
                 "next_payment": timestamp + 86400
             })),
-            ("zhtp-economics", "distribute_ubi") => (true, serde_json::json!({
+            ("lib-economy", "distribute_ubi") => (true, serde_json::json!({
                 "transaction_id": format!("ubi_tx_{}", timestamp),
                 "amount": 1000,
                 "confirmed": true

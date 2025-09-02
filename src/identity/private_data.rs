@@ -1,6 +1,6 @@
 //! Private identity data from the original identity.rs
 
-use zhtp_crypto::Hash;
+use lib_crypto::Hash;
 
 /// Private identity data (never transmitted) - based on original identity.rs
 #[derive(Debug)]

@@ -5,7 +5,7 @@
 
 use anyhow::Result;
 use serde::{Serialize, Deserialize};
-use zhtp_crypto::Hash;
+use lib_crypto::Hash;
 use crate::types::IdentityId;
 
 /// Recovery key information
@@ -55,7 +55,7 @@ impl RecoveryKey {
             derivation_path.as_bytes(),
             &current_time.to_le_bytes(),
         ].concat();
-        let id = Hash::from_bytes(&zhtp_crypto::hash_blake3(&key_data));
+        let id = Hash::from_bytes(&lib_crypto::hash_blake3(&key_data));
         
         Self {
             id,

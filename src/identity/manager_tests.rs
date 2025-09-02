@@ -11,7 +11,7 @@ mod tests {
     use crate::citizenship::*;
     use crate::economics::EconomicModel;
     use crate::wallets::WalletType;
-    use zhtp_crypto::Hash;
+    use lib_crypto::Hash;
     use std::collections::HashMap;
 
     fn create_mock_economic_model() -> EconomicModel {
@@ -192,7 +192,7 @@ mod tests {
             credential_type: CredentialType::AgeVerification,
             issuer: issuer_id,
             subject: identity_id.clone(),
-            proof: zhtp_zk::ZeroKnowledgeProof {
+            proof: lib_proofs::ZeroKnowledgeProof {
                 proof_system: "Test".to_string(),
                 proof_data: vec![1, 2, 3],
                 public_inputs: vec![4, 5, 6],
@@ -280,7 +280,7 @@ mod tests {
         let proof = manager.generate_identity_proof(&identity_id, &requirements)
             .await.expect("Failed to generate identity proof");
         
-        assert_eq!(proof.proof_system, "ZHTP-PlonkyCommit");
+        assert_eq!(proof.proof_system, "lib-PlonkyCommit");
         assert!(!proof.proof_data.is_empty());
         assert!(!proof.public_inputs.is_empty());
         assert!(!proof.verification_key.is_empty());
@@ -304,7 +304,7 @@ mod tests {
         assert!(!signature.signature.is_empty());
         assert!(!signature.public_key.dilithium_pk.is_empty());
         assert!(!signature.public_key.kyber_pk.is_empty());
-        assert_eq!(signature.algorithm, zhtp_crypto::SignatureAlgorithm::Dilithium2);
+        assert_eq!(signature.algorithm, lib_crypto::SignatureAlgorithm::Dilithium2);
         assert!(signature.timestamp > 0);
     }
 

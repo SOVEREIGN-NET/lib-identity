@@ -365,7 +365,7 @@ impl IdentityVerifier {
             ubi_eligible,
             citizenship_registry_confirmed,
             citizenship_level,
-            verification_source: "zhtp_economics".to_string(),
+            verification_source: "lib_economy".to_string(),
         })
     }
 
@@ -412,7 +412,7 @@ impl IdentityVerifier {
             reputation_score,
             peer_confirmations,
             negative_reports,
-            reputation_source: "zhtp_network".to_string(),
+            reputation_source: "lib_network".to_string(),
         })
     }
 
@@ -456,7 +456,7 @@ impl IdentityVerifier {
     fn initialize_trust_anchors() -> Vec<TrustAnchor> {
         vec![
             TrustAnchor {
-                id: "zhtp_foundation".to_string(),
+                id: "lib_foundation".to_string(),
                 name: "ZHTP Foundation".to_string(),
                 public_key: vec![0; 32], // Would be real public key
                 verification_methods: vec!["quantum_signature".to_string(), "multi_sig".to_string()],
@@ -584,7 +584,7 @@ mod tests {
     use super::*;
     use crate::identity::ZhtpIdentity;
     use crate::types::{IdentityType};
-    use zhtp_zk::ZeroKnowledgeProof;
+    use lib_proofs::ZeroKnowledgeProof;
 
     fn create_test_identity() -> ZhtpIdentity {
         let public_key = vec![42u8; 32];

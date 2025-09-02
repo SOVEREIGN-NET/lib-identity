@@ -1,8 +1,8 @@
 //! Zero-knowledge credential implementation from the original identity.rs
 
 use serde::{Deserialize, Serialize};
-use zhtp_crypto::Hash;
-use zhtp_zk::ZeroKnowledgeProof;
+use lib_crypto::Hash;
+use lib_proofs::ZeroKnowledgeProof;
 use crate::types::{IdentityId, CredentialType};
 
 /// Zero-knowledge credential
@@ -49,7 +49,7 @@ impl ZkCredential {
             &serde_json::to_vec(&credential_type).unwrap_or_default()
         ].concat();
         
-        let id = Hash::from_bytes(&zhtp_crypto::hash_blake3(&id_data));
+        let id = Hash::from_bytes(&lib_crypto::hash_blake3(&id_data));
         
         Self {
             id,

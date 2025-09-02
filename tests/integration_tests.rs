@@ -6,7 +6,7 @@
 use lib_identity::*;
 use lib_identity::credentials::creation::CredentialFactory;
 use lib_identity::identity::activity_tracking::{ActivityTracker, ActivityType};
-use zhtp_crypto::Hash;
+use lib_crypto::Hash;
 use std::collections::HashMap;
 
 #[tokio::test]
@@ -373,7 +373,7 @@ async fn test_citizenship_system_integration() {
 // Helper functions for tests
 
 async fn create_test_identity() -> identity::ZhtpIdentity {
-    use zhtp_zk::ZeroKnowledgeProof;
+    use lib_proofs::ZeroKnowledgeProof;
     
     let public_key = vec![42u8; 32];
     let ownership_proof = ZeroKnowledgeProof {

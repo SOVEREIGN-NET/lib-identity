@@ -1,7 +1,7 @@
 //! Wallet types from the original identity.rs
 
 use serde::{Deserialize, Serialize};
-use zhtp_crypto::Hash;
+use lib_crypto::Hash;
 use crate::types::IdentityId;
 
 /// Wallet identifier
@@ -98,7 +98,7 @@ impl QuantumWallet {
             name.as_bytes(),
             &current_time.to_le_bytes(),
         ].concat();
-        let id = Hash::from_bytes(&zhtp_crypto::hash_blake3(&wallet_data));
+        let id = Hash::from_bytes(&lib_crypto::hash_blake3(&wallet_data));
         
         Self {
             id,

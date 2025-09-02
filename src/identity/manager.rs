@@ -6,8 +6,8 @@
 use anyhow::{Result, anyhow};
 use std::collections::HashMap;
 use rand::RngCore;
-use zhtp_crypto::{Hash, PostQuantumSignature};
-use zhtp_zk::ZeroKnowledgeProof;
+use lib_crypto::{Hash, PostQuantumSignature};
+use lib_proofs::ZeroKnowledgeProof;
 
 use crate::types::{IdentityId, IdentityType, CredentialType, IdentityProofParams, IdentityVerification, AccessLevel};
 use crate::identity::{ZhtpIdentity, PrivateIdentityData};
@@ -402,7 +402,7 @@ impl IdentityManager {
             .as_secs();
 
         // Generate credential ID
-        let _credential_id = zhtp_crypto::hash_blake3(
+        let _credential_id = lib_crypto::hash_blake3(
             &[
                 identity_id.0.as_slice(),
                 claim.as_bytes(),
@@ -571,24 +571,24 @@ impl IdentityManager {
         ].concat();
         
         // Create the actual proof using cryptographic hash commitment
-        let proof_commitment = zhtp_crypto::hash_blake3(&witness_data);
-        let public_commitment = zhtp_crypto::hash_blake3(&public_inputs);
+        let proof_commitment = lib_crypto::hash_blake3(&witness_data);
+        let public_commitment = lib_crypto::hash_blake3(&public_inputs);
         
         // Combine commitments to create the final proof
-        let final_proof = zhtp_crypto::hash_blake3(&[
+        let final_proof = lib_crypto::hash_blake3(&[
             proof_commitment.as_slice(),
             public_commitment.as_slice()
         ].concat());
         
         // Create verification key from identity's public data
-        let verification_key = zhtp_crypto::hash_blake3(&[
+        let verification_key = lib_crypto::hash_blake3(&[
             &identity.public_key,
             identity.created_at.to_le_bytes().as_slice(),
             identity.reputation.to_le_bytes().as_slice()
         ].concat());
         
         Ok(ZeroKnowledgeProof {
-            proof_system: "ZHTP-PlonkyCommit".to_string(),
+            proof_system: "lib-PlonkyCommit".to_string(),
             proof_data: final_proof.to_vec(),
             public_inputs: public_inputs,
             verification_key: verification_key.to_vec(),
@@ -624,25 +624,25 @@ impl IdentityManager {
         ].concat();
         
         // Generate quantum-resistant signature using CRYSTALS-Dilithium approach
-        let signature_seed = zhtp_crypto::hash_blake3(&[
+        let signature_seed = lib_crypto::hash_blake3(&[
             private_data.private_key(),
             private_data.seed().as_slice(),
             &message_to_sign
         ].concat());
         
         // Create the signature using proper post-quantum methods
-        let signature_bytes = zhtp_crypto::hash_blake3(&[
+        let signature_bytes = lib_crypto::hash_blake3(&[
             signature_seed.as_slice(),
             &message_to_sign
         ].concat());
         
         // Generate corresponding public key components
-        let dilithium_pk = zhtp_crypto::hash_blake3(&[
+        let dilithium_pk = lib_crypto::hash_blake3(&[
             &identity.public_key,
             b"dilithium".as_slice()
         ].concat()).to_vec();
         
-        let kyber_pk = zhtp_crypto::hash_blake3(&[
+        let kyber_pk = lib_crypto::hash_blake3(&[
             &identity.public_key,
             b"kyber".as_slice()
         ].concat()).to_vec();
@@ -653,13 +653,13 @@ impl IdentityManager {
         
         Ok(PostQuantumSignature {
             signature: signature_bytes.to_vec(),
-            public_key: zhtp_crypto::PublicKey {
+            public_key: lib_crypto::PublicKey {
                 dilithium_pk,
                 kyber_pk,
                 ed25519_pk: identity.public_key.clone(), // Fallback for compatibility
                 key_id,
             },
-            algorithm: zhtp_crypto::SignatureAlgorithm::Dilithium2,
+            algorithm: lib_crypto::SignatureAlgorithm::Dilithium2,
             timestamp,
         })
     }
@@ -698,14 +698,14 @@ impl IdentityManager {
         }
         
         // Verify cryptographic proof
-        let expected_proof = zhtp_crypto::hash_blake3(&[
+        let expected_proof = lib_crypto::hash_blake3(&[
             credential.issuer.0.as_slice(),
             credential.subject.0.as_slice(),
             &serde_json::to_vec(&credential.credential_type)?,
             &credential.issued_at.to_le_bytes()
         ].concat());
         
-        let verification_check = zhtp_crypto::hash_blake3(&[
+        let verification_check = lib_crypto::hash_blake3(&[
             proof_data,
             public_inputs,
             expected_proof.as_slice()
@@ -747,22 +747,22 @@ impl IdentityManager {
         rand::thread_rng().fill_bytes(&mut private_key);
         
         // Derive deterministic private key from seed
-        let deterministic_private = zhtp_crypto::hash_blake3(&[
+        let deterministic_private = lib_crypto::hash_blake3(&[
             &seed,
             b"dilithium_private_key_generation".as_slice()
         ].concat());
         private_key[..32].copy_from_slice(deterministic_private.as_slice());
         
         // Generate corresponding public key
-        let public_key_seed = zhtp_crypto::hash_blake3(&[
+        let public_key_seed = lib_crypto::hash_blake3(&[
             &private_key,
             b"dilithium_public_key_generation".as_slice()
         ].concat());
         
         // Create public key using proper quantum-resistant methods
-        let public_key = zhtp_crypto::hash_blake3(&[
+        let public_key = lib_crypto::hash_blake3(&[
             public_key_seed.as_slice(),
-            b"zhtp_quantum_resistant_public_key"
+            b"lib_quantum_resistant_public_key"
         ].concat()).to_vec();
         
         Ok((private_key, public_key))
@@ -777,27 +777,27 @@ impl IdentityManager {
             .as_secs();
         
         // Create proof challenge
-        let challenge = zhtp_crypto::hash_blake3(&[
+        let challenge = lib_crypto::hash_blake3(&[
             public_key,
             &timestamp.to_le_bytes(),
             b"ownership_proof_challenge"
         ].concat());
         
         // Generate proof response using private key
-        let proof_response = zhtp_crypto::hash_blake3(&[
+        let proof_response = lib_crypto::hash_blake3(&[
             private_key,
             challenge.as_slice(),
             b"ownership_proof_response"
         ].concat());
         
         // Create verification commitment
-        let verification_commitment = zhtp_crypto::hash_blake3(&[
+        let verification_commitment = lib_crypto::hash_blake3(&[
             public_key,
             proof_response.as_slice()
         ].concat());
         
         Ok(ZeroKnowledgeProof {
-            proof_system: "ZHTP-OwnershipProof".to_string(),
+            proof_system: "lib-OwnershipProof".to_string(),
             proof_data: proof_response.to_vec(),
             public_inputs: public_key.to_vec(),
             verification_key: verification_commitment.to_vec(),

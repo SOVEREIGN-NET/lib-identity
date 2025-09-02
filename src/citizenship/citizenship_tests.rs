@@ -1,7 +1,7 @@
 //! Comprehensive tests for the citizenship system
 
 use super::*;
-use zhtp_crypto::Hash;
+use lib_crypto::Hash;
 use crate::types::*;
 use std::collections::HashMap;
 
@@ -82,7 +82,7 @@ impl CitizenshipManager {
             return Err(anyhow::anyhow!("Identity already registered as citizen"));
         }
 
-        let citizenship_id = Hash::from_bytes(&zhtp_crypto::hash_blake3(&[
+        let citizenship_id = Hash::from_bytes(&lib_crypto::hash_blake3(&[
             identity_id.as_bytes(),
             &verification_data.verification_timestamp.to_le_bytes(),
             b"citizenship_registration",
@@ -121,7 +121,7 @@ impl CitizenshipManager {
         let record = self.citizens.get(identity_id)
             .ok_or_else(|| anyhow::anyhow!("Citizenship record not found"))?;
 
-        let verification_hash = Hash::from_bytes(&zhtp_crypto::hash_blake3(&[
+        let verification_hash = Hash::from_bytes(&lib_crypto::hash_blake3(&[
             identity_id.as_bytes(),
             &record.citizenship_id.as_bytes(),
             &record.registration_timestamp.to_le_bytes(),

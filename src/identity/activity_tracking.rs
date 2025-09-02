@@ -215,7 +215,7 @@ impl Default for ActivityTracker {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use zhtp_crypto::Hash;
+    use lib_crypto::Hash;
 
     #[test]
     fn test_activity_tracking() {

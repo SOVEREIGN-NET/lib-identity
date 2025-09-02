@@ -404,8 +404,8 @@ impl TrustedIssuersRegistry {
         let mut issuers = HashMap::new();
 
         // ZHTP Foundation
-        issuers.insert("zhtp_foundation".to_string(), TrustedIssuer {
-            issuer_id: "zhtp_foundation".to_string(),
+        issuers.insert("lib_foundation".to_string(), TrustedIssuer {
+            issuer_id: "lib_foundation".to_string(),
             name: "ZHTP Foundation".to_string(),
             description: "The foundational authority for ZHTP identity verification".to_string(),
             public_key: vec![1; 32], // Placeholder key
@@ -420,7 +420,7 @@ impl TrustedIssuersRegistry {
             ],
             verification_methods: vec![
                 VerificationMethod {
-                    method_id: "zhtp_zk_proof".to_string(),
+                    method_id: "lib_proofs_proof".to_string(),
                     method_type: "zero_knowledge_proof".to_string(),
                     verification_endpoint: "https://verify.zhtp.foundation/zk".to_string(),
                     supported_proofs: vec!["citizenship_proof".to_string(), "identity_proof".to_string()],

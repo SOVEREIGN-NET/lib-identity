@@ -2,7 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use zhtp_crypto::Hash;
+use lib_crypto::Hash;
 
 /// Unique identity identifier
 pub type IdentityId = Hash;

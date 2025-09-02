@@ -285,7 +285,7 @@ impl RequirementsVerifier {
                     proof_type: "citizenship_proof".to_string(),
                     required_attributes: vec!["nationality".to_string(), "residence".to_string()],
                     privacy_level: PrivacyLevel::Restricted,
-                    trusted_issuers: vec!["government_registry".to_string(), "zhtp_foundation".to_string()],
+                    trusted_issuers: vec!["government_registry".to_string(), "lib_foundation".to_string()],
                     minimum_confidence: 0.90,
                 },
                 ProofRequirement {

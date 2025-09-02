@@ -3,8 +3,8 @@
 use anyhow::{Result, anyhow};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use zhtp_crypto::Hash;
-use zhtp_zk::ZeroKnowledgeProof;
+use lib_crypto::Hash;
+use lib_proofs::ZeroKnowledgeProof;
 
 use crate::types::{IdentityId, IdentityType, CredentialType, IdentityProofParams, IdentityVerification, AccessLevel, PrivateIdentityData};
 use crate::credentials::ZkCredential;
@@ -197,7 +197,7 @@ impl ZhtpIdentity {
             }],
             "authentication": [format!("did:zhtp:{}#key-1", hex::encode(self.id.as_bytes()))],
             "service": [{
-                "id": format!("did:zhtp:{}#zhtp-wallet", hex::encode(self.id.as_bytes())),
+                "id": format!("did:zhtp:{}#lib-wallet", hex::encode(self.id.as_bytes())),
                 "type": "ZhtpQuantumWallet",
                 "serviceEndpoint": format!("zhtp://wallet/{}", hex::encode(self.id.as_bytes()))
             }],
@@ -234,8 +234,8 @@ impl ZhtpIdentity {
         }
         
         // Verify issuer signature on credential (simplified)
-        let _credential_hash = zhtp_crypto::hash_blake3(&serde_json::to_vec(credential)?);
-        let _expected_proof = zhtp_crypto::hash_blake3(&[
+        let _credential_hash = lib_crypto::hash_blake3(&serde_json::to_vec(credential)?);
+        let _expected_proof = lib_crypto::hash_blake3(&[
             credential.issuer.0.as_slice(),
             credential.subject.0.as_slice(),
             &credential.issued_at.to_le_bytes(),
@@ -267,7 +267,7 @@ impl ZhtpIdentity {
         }
         
         // Verify attester has authority to make this attestation
-        let _attestation_hash = zhtp_crypto::hash_blake3(&[
+        let _attestation_hash = lib_crypto::hash_blake3(&[
             attestation.attester.0.as_slice(),
             &attestation.created_at.to_le_bytes(),
             &serde_json::to_vec(&attestation.attestation_type)?

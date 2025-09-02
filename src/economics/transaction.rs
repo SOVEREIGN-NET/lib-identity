@@ -2,7 +2,7 @@
 
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
-use zhtp_crypto::Hash;
+use lib_crypto::Hash;
 
 /// Transaction types supported by ZHTP
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -85,19 +85,19 @@ impl Transaction {
         let mut tx_id_data = Vec::new();
         tx_id_data.extend_from_slice(&from);
         tx_id_data.extend_from_slice(&to);
-        tx_id_data.extend_from_slice(&zhtp_crypto::hash_blake3(&amount.to_le_bytes()));
-        tx_id_data.extend_from_slice(&zhtp_crypto::hash_blake3(&timestamp.to_le_bytes()));
-        tx_id_data.extend_from_slice(&zhtp_crypto::hash_blake3(&serde_json::to_vec(&tx_type).unwrap_or_default()));
+        tx_id_data.extend_from_slice(&lib_crypto::hash_blake3(&amount.to_le_bytes()));
+        tx_id_data.extend_from_slice(&lib_crypto::hash_blake3(&timestamp.to_le_bytes()));
+        tx_id_data.extend_from_slice(&lib_crypto::hash_blake3(&serde_json::to_vec(&tx_type).unwrap_or_default()));
         
-        let tx_id = Hash::from_bytes(&zhtp_crypto::hash_blake3(&tx_id_data));
+        let tx_id = Hash::from_bytes(&lib_crypto::hash_blake3(&tx_id_data));
 
         // Generate DAO fee proof
         let dao_fee_proof = if dao_fee > 0 {
             let mut proof_data = Vec::new();
-            proof_data.extend_from_slice(&zhtp_crypto::hash_blake3(&dao_fee.to_le_bytes()));
-            proof_data.extend_from_slice(&zhtp_crypto::hash_blake3(&timestamp.to_le_bytes()));
-            proof_data.extend_from_slice(&zhtp_crypto::hash_blake3(b"dao_fee_proof"));
-            Some(zhtp_crypto::hash_blake3(&proof_data))
+            proof_data.extend_from_slice(&lib_crypto::hash_blake3(&dao_fee.to_le_bytes()));
+            proof_data.extend_from_slice(&lib_crypto::hash_blake3(&timestamp.to_le_bytes()));
+            proof_data.extend_from_slice(&lib_crypto::hash_blake3(b"dao_fee_proof"));
+            Some(lib_crypto::hash_blake3(&proof_data))
         } else {
             None
         };
@@ -136,11 +136,11 @@ impl Transaction {
         let mut tx_id_data = Vec::new();
         tx_id_data.extend_from_slice(&self.from);
         tx_id_data.extend_from_slice(&self.to);
-        tx_id_data.extend_from_slice(&zhtp_crypto::hash_blake3(&self.amount.to_le_bytes()));
-        tx_id_data.extend_from_slice(&zhtp_crypto::hash_blake3(&self.timestamp.to_le_bytes()));
-        tx_id_data.extend_from_slice(&zhtp_crypto::hash_blake3(&serde_json::to_vec(&self.tx_type).unwrap_or_default()));
+        tx_id_data.extend_from_slice(&lib_crypto::hash_blake3(&self.amount.to_le_bytes()));
+        tx_id_data.extend_from_slice(&lib_crypto::hash_blake3(&self.timestamp.to_le_bytes()));
+        tx_id_data.extend_from_slice(&lib_crypto::hash_blake3(&serde_json::to_vec(&self.tx_type).unwrap_or_default()));
         
-        let expected_tx_id = Hash::from_bytes(&zhtp_crypto::hash_blake3(&tx_id_data));
+        let expected_tx_id = Hash::from_bytes(&lib_crypto::hash_blake3(&tx_id_data));
         
         if self.tx_id != expected_tx_id {
             return Ok(false);
@@ -154,10 +154,10 @@ impl Transaction {
         // Verify DAO fee proof if present
         if let Some(dao_fee_proof) = self.dao_fee_proof {
             let mut proof_data = Vec::new();
-            proof_data.extend_from_slice(&zhtp_crypto::hash_blake3(&self.dao_fee.to_le_bytes()));
-            proof_data.extend_from_slice(&zhtp_crypto::hash_blake3(&self.timestamp.to_le_bytes()));
-            proof_data.extend_from_slice(&zhtp_crypto::hash_blake3(b"dao_fee_proof"));
-            let expected_proof = zhtp_crypto::hash_blake3(&proof_data);
+            proof_data.extend_from_slice(&lib_crypto::hash_blake3(&self.dao_fee.to_le_bytes()));
+            proof_data.extend_from_slice(&lib_crypto::hash_blake3(&self.timestamp.to_le_bytes()));
+            proof_data.extend_from_slice(&lib_crypto::hash_blake3(b"dao_fee_proof"));
+            let expected_proof = lib_crypto::hash_blake3(&proof_data);
             
             if dao_fee_proof != expected_proof {
                 return Ok(false);

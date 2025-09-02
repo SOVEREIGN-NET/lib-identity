@@ -28,8 +28,8 @@ pub use types::{AccessLevel, IdentityProofParams};
 pub use types::IdentityVerification;
 
 // External dependencies re-exports
-pub use zhtp_crypto as crypto;
-pub use zhtp_zk::{ZeroKnowledgeProof, ZkProof};
+pub use lib_crypto as crypto;
+pub use lib_proofs::{ZeroKnowledgeProof, ZkProof};
 
 // Utility functions
 use anyhow::Result;

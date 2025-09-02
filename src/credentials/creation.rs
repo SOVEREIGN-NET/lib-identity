@@ -3,8 +3,8 @@
 use serde::{Deserialize, Serialize};
 use anyhow::{Result, anyhow};
 use std::collections::HashMap;
-use zhtp_crypto::Hash;
-use zhtp_zk::ZeroKnowledgeProof;
+use lib_crypto::Hash;
+use lib_proofs::ZeroKnowledgeProof;
 use crate::types::{IdentityId, CredentialType};
 use crate::credentials::ZkCredential;
 
@@ -114,7 +114,7 @@ impl CredentialFactory {
         }
 
         // Generate credential ID
-        let credential_id = zhtp_crypto::hash_blake3(
+        let credential_id = lib_crypto::hash_blake3(
             &[
                 subject_id.0.as_slice(),
                 claim.as_bytes(),
@@ -206,24 +206,24 @@ impl CredentialFactory {
         claim: &str,
     ) -> Result<ZeroKnowledgeProof> {
         // Create ZK proof for the credential
-        let proof_data = zhtp_crypto::hash_blake3(&[
+        let proof_data = lib_crypto::hash_blake3(&[
             subject_id.0.as_slice(),
             claim.as_bytes(),
             &serde_json::to_vec(credential_type)?,
         ].concat());
 
-        let public_inputs = zhtp_crypto::hash_blake3(&[
+        let public_inputs = lib_crypto::hash_blake3(&[
             subject_id.0.as_slice(),
             &self.factory_id.0,
         ].concat());
 
-        let verification_key = zhtp_crypto::hash_blake3(&[
+        let verification_key = lib_crypto::hash_blake3(&[
             proof_data.as_slice(),
             public_inputs.as_slice(),
         ].concat());
 
         Ok(ZeroKnowledgeProof {
-            proof_system: "ZHTP-CredentialProof".to_string(),
+            proof_system: "lib-CredentialProof".to_string(),
             proof_data: proof_data.to_vec(),
             public_inputs: public_inputs.to_vec(),
             verification_key: verification_key.to_vec(),
@@ -239,10 +239,10 @@ impl CredentialFactory {
         data.extend_from_slice(&age.to_le_bytes());
         data.extend_from_slice(age_verification_bytes);
         data.extend_from_slice(&self.factory_id.0);
-        let proof_data = zhtp_crypto::hash_blake3(&data);
+        let proof_data = lib_crypto::hash_blake3(&data);
 
         Ok(ZeroKnowledgeProof {
-            proof_system: "ZHTP-AgeProof".to_string(),
+            proof_system: "lib-AgeProof".to_string(),
             proof_data: proof_data.to_vec(),
             public_inputs: vec![18], // Minimum age
             verification_key: proof_data.to_vec(),
@@ -258,10 +258,10 @@ impl CredentialFactory {
         data.extend_from_slice(&score.to_le_bytes());
         data.extend_from_slice(reputation_verification_bytes);
         data.extend_from_slice(&self.factory_id.0);
-        let proof_data = zhtp_crypto::hash_blake3(&data);
+        let proof_data = lib_crypto::hash_blake3(&data);
 
         Ok(ZeroKnowledgeProof {
-            proof_system: "ZHTP-ReputationProof".to_string(),
+            proof_system: "lib-ReputationProof".to_string(),
             proof_data: proof_data.to_vec(),
             public_inputs: score.to_le_bytes().to_vec(),
             verification_key: proof_data.to_vec(),
@@ -282,7 +282,7 @@ impl CredentialFactory {
             issuer: self.factory_id.clone(),
             subject: subject_id,
             proof: ZeroKnowledgeProof {
-                proof_system: "ZHTP-EmptyProof".to_string(),
+                proof_system: "lib-EmptyProof".to_string(),
                 proof_data: vec![],
                 public_inputs: vec![],
                 verification_key: vec![],

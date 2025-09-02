@@ -9,7 +9,7 @@ pub mod transaction;
 pub use transaction::{Transaction, TransactionType, Priority};
 
 // Temporary economic model for integration
-// This should be replaced with actual zhtp-economics integration
+// This should be replaced with actual lib-economy integration
 #[derive(Debug, Clone)]
 pub struct EconomicModel {
     /// UBI treasury balance

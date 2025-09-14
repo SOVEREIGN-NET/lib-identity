@@ -2,11 +2,8 @@
 // W3C DID Document generation for ZHTP identities
 // REAL IMPLEMENTATIONS from original identity.rs
 
-use crate::types::IdentityId;
 use crate::identity::ZhtpIdentity;
-use crate::cryptography::PostQuantumKeypair;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
 /// W3C DID Document structure
 #[derive(Debug, Clone, Serialize, Deserialize)]

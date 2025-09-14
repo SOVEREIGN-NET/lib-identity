@@ -2,11 +2,8 @@
 // Privacy-preserving credential setup and management
 // REAL IMPLEMENTATIONS from original identity.rs
 
-use crate::types::{CredentialType, IdentityId};
 use crate::identity::ZhtpIdentity;
-use crate::credentials::ZkCredential;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
 /// Privacy credentials configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]

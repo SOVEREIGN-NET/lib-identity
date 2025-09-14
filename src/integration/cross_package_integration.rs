@@ -1,6 +1,6 @@
 //! Cross-package integration with ZHTP crypto, ZK, and economics packages
 
-use crate::types::*;
+
 use crate::identity::ZhtpIdentity;
 use std::collections::HashMap;
 use serde::{Deserialize, Serialize};

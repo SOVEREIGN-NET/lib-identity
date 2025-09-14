@@ -1,6 +1,5 @@
 //! Proof generation for cross-package operations
 
-use crate::types::*;
 use crate::identity::ZhtpIdentity;
 use std::collections::HashMap;
 use serde::{Deserialize, Serialize};

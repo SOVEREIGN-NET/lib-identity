@@ -1,9 +1,11 @@
 // packages/lib-identity/src/cryptography/signatures.rs
 // Post-quantum signature generation and verification
-// REAL IMPLEMENTATIONS from original identity.rs
+// REAL IMPLEMENTATIONS using lib-crypto
 
 use crate::cryptography::PostQuantumKeypair;
 use serde::{Deserialize, Serialize};
+use lib_crypto::post_quantum::{dilithium2_sign, dilithium2_verify, dilithium5_sign, dilithium5_verify};
+use anyhow::Result;
 
 /// Post-quantum signature using CRYSTALS-Dilithium
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -47,12 +49,13 @@ pub fn sign_with_identity(
     
     signing_input.extend_from_slice(message);
     
-    // Generate signature based on security level
+    // Generate signature using real lib-crypto implementations
     let signature = match keypair.security_level {
-        2 => generate_dilithium_level2_signature(&keypair.private_key, &signing_input, params.randomization)?,
-        3 => generate_dilithium_level3_signature(&keypair.private_key, &signing_input, params.randomization)?,
-        5 => generate_dilithium_level5_signature(&keypair.private_key, &signing_input, params.randomization)?,
-        _ => return Err("Unsupported security level".to_string()),
+        2 => dilithium2_sign(&signing_input, &keypair.private_key)
+            .map_err(|e| format!("Dilithium2 signing failed: {}", e))?,
+        5 => dilithium5_sign(&signing_input, &keypair.private_key)
+            .map_err(|e| format!("Dilithium5 signing failed: {}", e))?,
+        _ => return Err("Unsupported security level (supported: 2, 5)".to_string()),
     };
     
     let timestamp = std::time::SystemTime::now()
@@ -93,215 +96,17 @@ pub fn verify_signature(
     
     signing_input.extend_from_slice(message);
     
-    // Verify signature based on security level
+    // Verify signature using real lib-crypto implementations
     match signature.security_level {
-        2 => verify_dilithium_level2_signature(public_key, &signing_input, &signature.signature),
-        3 => verify_dilithium_level3_signature(public_key, &signing_input, &signature.signature),
-        5 => verify_dilithium_level5_signature(public_key, &signing_input, &signature.signature),
-        _ => Err("Unsupported security level".to_string()),
+        2 => dilithium2_verify(&signing_input, &signature.signature, public_key)
+            .map_err(|e| format!("Dilithium2 verification failed: {}", e)),
+        5 => dilithium5_verify(&signing_input, &signature.signature, public_key)
+            .map_err(|e| format!("Dilithium5 verification failed: {}", e)),
+        _ => Err("Unsupported security level (supported: 2, 5)".to_string()),
     }
 }
 
-/// Generate CRYSTALS-Dilithium Level 2 signature
-fn generate_dilithium_level2_signature(
-    private_key: &[u8],
-    message: &[u8],
-    randomized: bool,
-) -> Result<Vec<u8>, String> {
-    // Real Dilithium Level 2 signature generation
-    // Signature size: 2420 bytes
-    
-    let mut signature = Vec::with_capacity(2420);
-    
-    // Generate signature polynomial coefficients
-    let mut sig_state = private_key.iter().fold(0u64, |acc, &b| acc.wrapping_mul(31).wrapping_add(b as u64));
-    
-    // Include message in signature generation
-    for &byte in message {
-        sig_state = sig_state.wrapping_mul(17).wrapping_add(byte as u64);
-    }
-    
-    // Add randomization if requested
-    if randomized {
-        let random_nonce = generate_random_nonce();
-        for &byte in &random_nonce {
-            sig_state = sig_state.wrapping_mul(23).wrapping_add(byte as u64);
-        }
-    }
-    
-    // Generate signature bytes
-    for i in 0..2420 {
-        sig_state = sig_state.wrapping_mul(1103515245).wrapping_add(12345);
-        signature.push((sig_state % 256) as u8);
-    }
-    
-    Ok(signature)
-}
-
-/// Generate CRYSTALS-Dilithium Level 3 signature
-fn generate_dilithium_level3_signature(
-    private_key: &[u8],
-    message: &[u8],
-    randomized: bool,
-) -> Result<Vec<u8>, String> {
-    // Real Dilithium Level 3 signature generation
-    // Signature size: 3293 bytes
-    
-    let mut signature = Vec::with_capacity(3293);
-    
-    // Generate signature polynomial coefficients
-    let mut sig_state = private_key.iter().fold(0u64, |acc, &b| acc.wrapping_mul(31).wrapping_add(b as u64));
-    
-    // Include message in signature generation
-    for &byte in message {
-        sig_state = sig_state.wrapping_mul(19).wrapping_add(byte as u64);
-    }
-    
-    // Add randomization if requested
-    if randomized {
-        let random_nonce = generate_random_nonce();
-        for &byte in &random_nonce {
-            sig_state = sig_state.wrapping_mul(29).wrapping_add(byte as u64);
-        }
-    }
-    
-    // Generate signature bytes
-    for i in 0..3293 {
-        sig_state = sig_state.wrapping_mul(1103515245).wrapping_add(12345);
-        signature.push((sig_state % 256) as u8);
-    }
-    
-    Ok(signature)
-}
-
-/// Generate CRYSTALS-Dilithium Level 5 signature
-fn generate_dilithium_level5_signature(
-    private_key: &[u8],
-    message: &[u8],
-    randomized: bool,
-) -> Result<Vec<u8>, String> {
-    // Real Dilithium Level 5 signature generation
-    // Signature size: 4595 bytes
-    
-    let mut signature = Vec::with_capacity(4595);
-    
-    // Generate signature polynomial coefficients
-    let mut sig_state = private_key.iter().fold(0u64, |acc, &b| acc.wrapping_mul(31).wrapping_add(b as u64));
-    
-    // Include message in signature generation
-    for &byte in message {
-        sig_state = sig_state.wrapping_mul(23).wrapping_add(byte as u64);
-    }
-    
-    // Add randomization if requested
-    if randomized {
-        let random_nonce = generate_random_nonce();
-        for &byte in &random_nonce {
-            sig_state = sig_state.wrapping_mul(37).wrapping_add(byte as u64);
-        }
-    }
-    
-    // Generate signature bytes
-    for i in 0..4595 {
-        sig_state = sig_state.wrapping_mul(1103515245).wrapping_add(12345);
-        signature.push((sig_state % 256) as u8);
-    }
-    
-    Ok(signature)
-}
-
-/// Verify CRYSTALS-Dilithium Level 2 signature
-fn verify_dilithium_level2_signature(
-    public_key: &[u8],
-    message: &[u8],
-    signature: &[u8],
-) -> Result<bool, String> {
-    if signature.len() != 2420 {
-        return Err("Invalid Dilithium Level 2 signature length".to_string());
-    }
-    
-    if public_key.len() != 1312 {
-        return Err("Invalid Dilithium Level 2 public key length".to_string());
-    }
-    
-    // Verify signature using polynomial arithmetic
-    // This is a simplified verification - real implementation would use lattice operations
-    let signature_hash = signature.iter().fold(0u64, |acc, &b| acc.wrapping_mul(31).wrapping_add(b as u64));
-    let message_hash = message.iter().fold(0u64, |acc, &b| acc.wrapping_mul(17).wrapping_add(b as u64));
-    let key_hash = public_key.iter().fold(0u64, |acc, &b| acc.wrapping_mul(13).wrapping_add(b as u64));
-    
-    // Verification equation (simplified)
-    let verification_result = (signature_hash ^ message_hash ^ key_hash) % 65537;
-    Ok(verification_result < 32768) // 50% acceptance probability for demo
-}
-
-/// Verify CRYSTALS-Dilithium Level 3 signature
-fn verify_dilithium_level3_signature(
-    public_key: &[u8],
-    message: &[u8],
-    signature: &[u8],
-) -> Result<bool, String> {
-    if signature.len() != 3293 {
-        return Err("Invalid Dilithium Level 3 signature length".to_string());
-    }
-    
-    if public_key.len() != 1952 {
-        return Err("Invalid Dilithium Level 3 public key length".to_string());
-    }
-    
-    // Verify signature using polynomial arithmetic
-    let signature_hash = signature.iter().fold(0u64, |acc, &b| acc.wrapping_mul(31).wrapping_add(b as u64));
-    let message_hash = message.iter().fold(0u64, |acc, &b| acc.wrapping_mul(19).wrapping_add(b as u64));
-    let key_hash = public_key.iter().fold(0u64, |acc, &b| acc.wrapping_mul(13).wrapping_add(b as u64));
-    
-    // Verification equation (simplified)
-    let verification_result = (signature_hash ^ message_hash ^ key_hash) % 65537;
-    Ok(verification_result < 32768)
-}
-
-/// Verify CRYSTALS-Dilithium Level 5 signature
-fn verify_dilithium_level5_signature(
-    public_key: &[u8],
-    message: &[u8],
-    signature: &[u8],
-) -> Result<bool, String> {
-    if signature.len() != 4595 {
-        return Err("Invalid Dilithium Level 5 signature length".to_string());
-    }
-    
-    if public_key.len() != 2592 {
-        return Err("Invalid Dilithium Level 5 public key length".to_string());
-    }
-    
-    // Verify signature using polynomial arithmetic
-    let signature_hash = signature.iter().fold(0u64, |acc, &b| acc.wrapping_mul(31).wrapping_add(b as u64));
-    let message_hash = message.iter().fold(0u64, |acc, &b| acc.wrapping_mul(23).wrapping_add(b as u64));
-    let key_hash = public_key.iter().fold(0u64, |acc, &b| acc.wrapping_mul(13).wrapping_add(b as u64));
-    
-    // Verification equation (simplified)
-    let verification_result = (signature_hash ^ message_hash ^ key_hash) % 65537;
-    Ok(verification_result < 32768)
-}
-
-/// Generate random nonce for signature randomization
-fn generate_random_nonce() -> Vec<u8> {
-    let mut nonce = Vec::with_capacity(32);
-    let timestamp = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_nanos();
-    
-    let time_bytes = timestamp.to_be_bytes();
-    nonce.extend_from_slice(&time_bytes);
-    
-    // Fill remaining bytes with pseudo-random data
-    for i in time_bytes.len()..32 {
-        let entropy = ((timestamp >> (i * 8)) ^ (i as u128 * 251)) as u8;
-        nonce.push(entropy);
-    }
-    
-    nonce
-}
+// Removed fake Dilithium implementations - now using real lib-crypto functions
 
 /// Batch verify multiple signatures efficiently
 pub fn batch_verify_signatures(

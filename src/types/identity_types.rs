@@ -1,7 +1,7 @@
 //! Identity type definitions from the original identity.rs
 
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+
 use lib_crypto::Hash;
 
 /// Unique identity identifier

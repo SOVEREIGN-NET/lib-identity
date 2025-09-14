@@ -2,7 +2,7 @@
 // Reputation scoring system for ZHTP identities
 // REAL IMPLEMENTATIONS from original identity.rs
 
-use crate::types::{CredentialType, AccessLevel};
+use crate::types::AccessLevel;
 use crate::identity::ZhtpIdentity;
 use crate::credentials::ZkCredential;
 use serde::{Deserialize, Serialize};

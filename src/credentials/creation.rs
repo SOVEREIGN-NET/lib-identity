@@ -1,7 +1,7 @@
 //! Credential creation functionality from the original identity.rs
 
 use serde::{Deserialize, Serialize};
-use anyhow::{Result, anyhow};
+use anyhow::Result;
 use std::collections::HashMap;
 use lib_crypto::Hash;
 use lib_proofs::ZeroKnowledgeProof;
@@ -160,7 +160,7 @@ impl CredentialFactory {
         &mut self,
         subject_id: IdentityId,
         age: u8,
-        zk_proof: Option<ZeroKnowledgeProof>,
+        _zk_proof: Option<ZeroKnowledgeProof>,
         issuer_id: IdentityId,
     ) -> Result<CreationResult> {
         let claim = format!("age_verified_{}", age);
@@ -233,6 +233,7 @@ impl CredentialFactory {
     }
 
     /// Generate age verification proof
+    #[allow(dead_code)] // API method - will be used when ZK proof integration is complete
     async fn generate_age_proof(&self, age: u8) -> Result<ZeroKnowledgeProof> {
         let age_verification_bytes = b"age_verification";
         let mut data = Vec::new();
@@ -252,6 +253,7 @@ impl CredentialFactory {
     }
 
     /// Generate reputation proof
+    #[allow(dead_code)] // API method - will be used when ZK proof integration is complete
     async fn generate_reputation_proof(&self, score: u32) -> Result<ZeroKnowledgeProof> {
         let reputation_verification_bytes = b"reputation_verification";
         let mut data = Vec::new();

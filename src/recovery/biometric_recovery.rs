@@ -1,6 +1,6 @@
 //! Biometric-based identity recovery system
 
-use crate::types::*;
+
 use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 use sha2::Digest;

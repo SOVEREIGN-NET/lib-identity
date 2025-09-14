@@ -161,7 +161,7 @@ impl VerificationCache {
         self.stats.total_lookups += 1;
 
         // Generate lookup key (simplified - would use more sophisticated matching)
-        let lookup_key = format!("{}:{}", identity_id, verification_type);
+        let _lookup_key = format!("{}:{}", identity_id, verification_type);
         
         // Find matching cache entry
         let mut matching_key = None;

@@ -1,10 +1,10 @@
 //! Recovery phrase management for mnemonic-based identity recovery
 
-use crate::types::*;
+
 use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 use sha2::Digest;
-use tokio::time::{Duration, Instant};
+use tokio::time::Instant;
 
 /// Recovery phrase manager for mnemonic-based identity recovery
 #[derive(Debug, Clone)]
@@ -431,7 +431,7 @@ impl RecoveryPhraseManager {
     /// Convert entropy to mnemonic words
     fn entropy_to_words(&self, entropy: &[u8], wordlist: &[String], word_count: usize) -> Result<Vec<String>, Box<dyn std::error::Error>> {
         let mut words = Vec::new();
-        let entropy_bits = entropy.len() * 8;
+        let _entropy_bits = entropy.len() * 8;
         let bits_per_word = 11; // BIP39 standard
         
         // Convert entropy bytes to bit array

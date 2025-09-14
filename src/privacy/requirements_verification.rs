@@ -2,11 +2,10 @@
 // Privacy-preserving requirements verification
 // REAL IMPLEMENTATIONS from original identity.rs
 
-use crate::types::{IdentityProofParams, IdentityVerification, CredentialType};
+use crate::types::IdentityProofParams;
 use crate::identity::ZhtpIdentity;
 use crate::privacy::{PrivacyCredentials, verify_age_requirement, verify_location_requirement};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
 /// Privacy score for identity verification
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -134,7 +133,7 @@ pub fn verify_requirements(
 
 /// Calculate detailed privacy score breakdown
 fn calculate_privacy_score(
-    identity: &ZhtpIdentity,
+    _identity: &ZhtpIdentity,
     privacy_credentials: &PrivacyCredentials,
     requirements: &IdentityProofParams,
     overall_score: u32,

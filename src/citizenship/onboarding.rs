@@ -1,6 +1,6 @@
 //! Complete citizenship onboarding from the original identity.rs
 
-use anyhow::Result;
+
 use serde::{Deserialize, Serialize};
 use crate::types::{IdentityId, AccessLevel};
 use crate::wallets::WalletId;

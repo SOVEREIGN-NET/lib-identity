@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use lib_crypto::Hash;
 use lib_proofs::ZeroKnowledgeProof;
 
-use crate::types::{IdentityId, IdentityType, CredentialType, IdentityProofParams, IdentityVerification, AccessLevel, PrivateIdentityData};
+use crate::types::{IdentityProofParams, IdentityVerification, AccessLevel, IdentityId, IdentityType, CredentialType};
 use crate::credentials::ZkCredential;
 use crate::credentials::IdentityAttestation;
 

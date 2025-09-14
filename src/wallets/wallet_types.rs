@@ -203,6 +203,8 @@ impl QuantumWallet {
 
     /// Check if wallet is healthy (basic health check)
     pub fn is_healthy(&self) -> bool {
-        self.is_active && self.balance >= 0 // Balance is u64, so always >= 0, but this is for future extensibility
+        // Note: Balance check removed since u64 is always >= 0
+        // Future: Change balance to i64 if negative balances needed
+        self.is_active
     }
 }

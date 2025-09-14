@@ -11,10 +11,10 @@ use lib_proofs::ZeroKnowledgeProof;
 
 use crate::types::{IdentityId, IdentityType, CredentialType, IdentityProofParams, IdentityVerification, AccessLevel};
 use crate::identity::{ZhtpIdentity, PrivateIdentityData};
-use crate::credentials::{ZkCredential, IdentityAttestation};
+use crate::credentials::ZkCredential;
 use crate::citizenship::{CitizenshipResult, onboarding::PrivacyCredentials};
 use crate::economics::EconomicModel;
-use crate::wallets::{WalletType, WalletId};
+use crate::wallets::WalletType;
 
 /// Identity Manager for ZHTP - Complete implementation from original identity.rs
 pub struct IdentityManager {
@@ -337,6 +337,12 @@ impl IdentityManager {
     /// Get identity by ID
     pub fn get_identity(&self, identity_id: &IdentityId) -> Option<&ZhtpIdentity> {
         self.identities.get(identity_id)
+    }
+
+    /// Add an existing identity to the manager
+    pub fn add_identity(&mut self, identity: ZhtpIdentity) {
+        let identity_id = identity.id.clone();
+        self.identities.insert(identity_id, identity);
     }
 
     /// List all identities

@@ -1,6 +1,6 @@
 //! Requirements verification for cross-package integration
 
-use crate::types::*;
+
 use crate::identity::ZhtpIdentity;
 use std::collections::HashMap;
 use serde::{Deserialize, Serialize};

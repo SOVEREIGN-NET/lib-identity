@@ -17,6 +17,7 @@ tracing = "0.1"
 bincode = "1.3"
 md5 = "0.7"
 sha2 = "0.10"
+names = { version = "0.14", default-features = false }
 lib-crypto = { path = "../lib-crypto" }
 lib-proofs = { path = "../lib-proofs" }
 

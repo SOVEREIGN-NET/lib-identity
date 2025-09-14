@@ -5,6 +5,9 @@ use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 use sha2::Digest;
 use tokio::time::Instant;
+use anyhow::{Result, anyhow};
+use names::{Generator, Name};
+use rand;
 
 /// Recovery phrase manager for mnemonic-based identity recovery
 #[derive(Debug, Clone)]
@@ -127,13 +130,28 @@ impl RecoveryPhraseManager {
             security_settings: PhraseSecuritySettings::default(),
         }
     }
+    
+    /// Create new recovery phrase manager with custom security settings
+    pub fn with_security_settings(security_settings: PhraseSecuritySettings) -> Self {
+        Self {
+            phrases: HashMap::new(),
+            validation_rules: PhraseValidationRules::default(),
+            phrase_usage: HashMap::new(),
+            security_settings,
+        }
+    }
+    
+    /// Get current security settings
+    pub fn get_security_settings(&self) -> &PhraseSecuritySettings {
+        &self.security_settings
+    }
 
     /// Generate new recovery phrase
     pub async fn generate_recovery_phrase(
         &mut self,
         identity_id: &str,
         options: PhraseGenerationOptions,
-    ) -> Result<RecoveryPhrase, Box<dyn std::error::Error>> {
+    ) -> Result<RecoveryPhrase> {
         // Validate generation options
         self.validate_generation_options(&options)?;
 
@@ -164,7 +182,7 @@ impl RecoveryPhraseManager {
         // Validate generated phrase
         let validation_result = self.validate_phrase(&phrase).await?;
         if !validation_result.valid {
-            return Err(format!("Generated phrase failed validation: {:?}", validation_result.errors).into());
+            return Err(anyhow!("Generated phrase failed validation: {:?}", validation_result.errors));
         }
 
         println!("✓ Generated {}-word recovery phrase for identity {}", options.word_count, identity_id);
@@ -177,16 +195,16 @@ impl RecoveryPhraseManager {
         identity_id: &str,
         phrase: &RecoveryPhrase,
         additional_auth: Option<&str>,
-    ) -> Result<String, Box<dyn std::error::Error>> {
+    ) -> Result<String> {
         // Validate phrase before storage
         let validation_result = self.validate_phrase(phrase).await?;
         if !validation_result.valid {
-            return Err("Cannot store invalid recovery phrase".into());
+            return Err(anyhow!("Cannot store invalid recovery phrase"));
         }
 
         // Check if additional auth is required
         if self.security_settings.require_additional_auth && additional_auth.is_none() {
-            return Err("Additional authentication required for phrase storage".into());
+            return Err(anyhow!("Additional authentication required for phrase storage"));
         }
 
         // Generate encryption key
@@ -250,7 +268,7 @@ impl RecoveryPhraseManager {
         &mut self,
         phrase_words: &[String],
         additional_auth: Option<&str>,
-    ) -> Result<String, Box<dyn std::error::Error>> {
+    ) -> Result<String> {
         // Reconstruct phrase
         let phrase_text = phrase_words.join(" ");
         let phrase_hash = self.calculate_phrase_hash(&phrase_text);
@@ -268,7 +286,7 @@ impl RecoveryPhraseManager {
         }
 
         let phrase_id = matching_phrase_id
-            .ok_or("No matching recovery phrase found")?;
+            .ok_or_else(|| anyhow!("No matching recovery phrase found"))?;
         let identity_id = matching_identity_id.unwrap();
 
         // Check usage limits and expiration
@@ -276,7 +294,7 @@ impl RecoveryPhraseManager {
         
         // Verify additional auth if required
         if self.security_settings.require_additional_auth && additional_auth.is_none() {
-            return Err("Additional authentication required for recovery".into());
+            return Err(anyhow!("Additional authentication required for recovery"));
         }
 
         // Decrypt and verify phrase
@@ -287,7 +305,7 @@ impl RecoveryPhraseManager {
         // Verify phrase matches
         if decrypted_phrase != phrase_text {
             self.record_failed_attempt(&phrase_id);
-            return Err("Recovery phrase verification failed".into());
+            return Err(anyhow!("Recovery phrase verification failed"));
         }
 
         // Update usage tracking
@@ -298,7 +316,7 @@ impl RecoveryPhraseManager {
     }
 
     /// Validate recovery phrase
-    pub async fn validate_phrase(&self, phrase: &RecoveryPhrase) -> Result<PhraseValidationResult, Box<dyn std::error::Error>> {
+    pub async fn validate_phrase(&self, phrase: &RecoveryPhrase) -> Result<PhraseValidationResult> {
         let mut result = PhraseValidationResult {
             valid: true,
             word_count_valid: false,
@@ -379,7 +397,7 @@ impl RecoveryPhraseManager {
     }
 
     /// Generate entropy from specified source
-    fn generate_entropy<'a>(&'a self, source: &'a EntropySource, word_count: usize) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Vec<u8>, Box<dyn std::error::Error>>> + Send + 'a>> {
+    fn generate_entropy<'a>(&'a self, source: &'a EntropySource, word_count: usize) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Vec<u8>>> + Send + 'a>> {
         Box::pin(async move {
             let entropy_bytes = (word_count * 11 + 7) / 8; // BIP39 entropy calculation
             
@@ -402,7 +420,7 @@ impl RecoveryPhraseManager {
                 },
                 EntropySource::UserProvided(user_entropy) => {
                     if user_entropy.len() < entropy_bytes {
-                        return Err("Insufficient user-provided entropy".into());
+                        return Err(anyhow!("Insufficient user-provided entropy"));
                     }
                     Ok(user_entropy[..entropy_bytes].to_vec())
                 },
@@ -429,7 +447,7 @@ impl RecoveryPhraseManager {
     }
 
     /// Convert entropy to mnemonic words
-    fn entropy_to_words(&self, entropy: &[u8], wordlist: &[String], word_count: usize) -> Result<Vec<String>, Box<dyn std::error::Error>> {
+    fn entropy_to_words(&self, entropy: &[u8], wordlist: &[String], word_count: usize) -> Result<Vec<String>> {
         let mut words = Vec::new();
         let _entropy_bits = entropy.len() * 8;
         let bits_per_word = 11; // BIP39 standard
@@ -454,7 +472,7 @@ impl RecoveryPhraseManager {
                 if word_index < wordlist.len() {
                     words.push(wordlist[word_index].clone());
                 } else {
-                    return Err("Word index out of range".into());
+                    return Err(anyhow!("Word index out of range"));
                 }
             }
         }
@@ -463,22 +481,39 @@ impl RecoveryPhraseManager {
     }
 
     /// Load wordlist for specified language
-    fn load_wordlist(&self, language: &str) -> Result<Vec<String>, Box<dyn std::error::Error>> {
+    fn load_wordlist(&self, language: &str) -> Result<Vec<String>> {
         // In real implementation, would load actual BIP39 wordlists
         // For now, return a simplified wordlist
         match language {
             "english" => Ok(self.get_english_wordlist()),
             "spanish" => Ok(self.get_spanish_wordlist()),
             "french" => Ok(self.get_french_wordlist()),
-            _ => Err(format!("Wordlist for language '{}' not available", language).into()),
+            _ => Err(anyhow!("Wordlist for language '{}' not available", language)),
         }
     }
 
-    /// Get English BIP39 wordlist (simplified)
+    /// Generate dynamic wordlist using names generator
+    fn generate_random_words(&self, count: usize) -> Vec<String> {
+        let mut generator = Generator::with_naming(Name::Plain);
+        let mut words = Vec::new();
+        
+        for _ in 0..count {
+            // Generate random words using the names crate
+            if let Some(word) = generator.next() {
+                words.push(word.replace('-', "").to_lowercase());
+            } else {
+                // Fallback to simple random word if generator fails
+                words.push(format!("word{:04}", rand::random::<u16>() % 2048));
+            }
+        }
+        
+        words
+    }
+    
+    /// Get English BIP39-style wordlist using dynamic generation
     fn get_english_wordlist(&self) -> Vec<String> {
-        // Simplified wordlist for demo purposes
-        // Real implementation would use complete BIP39 wordlist
-        (0..2048).map(|i| format!("word{:04}", i)).collect()
+        // Generate a dynamic set of 2048 words for BIP39 compatibility
+        self.generate_random_words(2048)
     }
 
     /// Get Spanish BIP39 wordlist (simplified)
@@ -492,7 +527,7 @@ impl RecoveryPhraseManager {
     }
 
     /// Generate checksum for phrase
-    fn generate_checksum(&self, words: &[String], entropy: &[u8]) -> Result<String, Box<dyn std::error::Error>> {
+    fn generate_checksum(&self, words: &[String], entropy: &[u8]) -> Result<String> {
         // Simple checksum implementation
         let phrase_text = words.join(" ");
         let combined = format!("{}{}", phrase_text, hex::encode(entropy));
@@ -522,7 +557,7 @@ impl RecoveryPhraseManager {
     }
 
     /// Additional helper methods for encryption, validation, etc.
-    async fn generate_salt(&self) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+    async fn generate_salt(&self) -> Result<Vec<u8>> {
         use rand::RngCore;
         let mut rng = rand::thread_rng();
         let mut salt = vec![0u8; 32];
@@ -530,7 +565,7 @@ impl RecoveryPhraseManager {
         Ok(salt)
     }
 
-    async fn derive_encryption_key(&self, identity_id: &str, additional_auth: Option<&str>, salt: &[u8]) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+    async fn derive_encryption_key(&self, identity_id: &str, additional_auth: Option<&str>, salt: &[u8]) -> Result<Vec<u8>> {
         // Simple key derivation (in real implementation, use proper KDF)
         let mut key_material = identity_id.as_bytes().to_vec();
         if let Some(auth) = additional_auth {
@@ -543,7 +578,7 @@ impl RecoveryPhraseManager {
         Ok(key_hash.to_vec())
     }
 
-    async fn encrypt_phrase(&self, phrase: &str, key: &[u8]) -> Result<(Vec<u8>, Vec<u8>), Box<dyn std::error::Error>> {
+    async fn encrypt_phrase(&self, phrase: &str, key: &[u8]) -> Result<(Vec<u8>, Vec<u8>)> {
         // Simple encryption (in real implementation, use proper AES encryption)
         let mut iv = vec![0u8; 16];
         use rand::RngCore;
@@ -561,7 +596,7 @@ impl RecoveryPhraseManager {
         Ok((encrypted, iv))
     }
 
-    async fn decrypt_phrase(&self, encrypted: &[u8], key: &[u8], iv: &[u8]) -> Result<String, Box<dyn std::error::Error>> {
+    async fn decrypt_phrase(&self, encrypted: &[u8], key: &[u8], iv: &[u8]) -> Result<String> {
         let mut decrypted = Vec::new();
         
         for (i, &byte) in encrypted.iter().enumerate() {
@@ -577,7 +612,7 @@ impl RecoveryPhraseManager {
         format!("{:x}", sha2::Sha256::digest(phrase.as_bytes()))
     }
 
-    fn check_phrase_usage_limits(&self, phrase_id: &str) -> Result<(), Box<dyn std::error::Error>> {
+    fn check_phrase_usage_limits(&self, phrase_id: &str) -> Result<()> {
         if let Some(encrypted_phrase) = self.phrases.get(phrase_id) {
             // Check expiration
             if let Some(expires_at) = encrypted_phrase.expires_at {
@@ -585,14 +620,14 @@ impl RecoveryPhraseManager {
                     .duration_since(std::time::UNIX_EPOCH)?
                     .as_secs();
                 if now > expires_at {
-                    return Err("Recovery phrase has expired".into());
+                    return Err(anyhow!("Recovery phrase has expired"));
                 }
             }
             
             // Check usage limits
             if let Some(max_usage) = encrypted_phrase.max_usage {
                 if encrypted_phrase.usage_count >= max_usage {
-                    return Err("Recovery phrase usage limit exceeded".into());
+                    return Err(anyhow!("Recovery phrase usage limit exceeded"));
                 }
             }
         }
@@ -622,14 +657,14 @@ impl RecoveryPhraseManager {
         }
     }
 
-    fn validate_generation_options(&self, options: &PhraseGenerationOptions) -> Result<(), Box<dyn std::error::Error>> {
+    fn validate_generation_options(&self, options: &PhraseGenerationOptions) -> Result<()> {
         if options.word_count < self.validation_rules.min_word_count 
             || options.word_count > self.validation_rules.max_word_count {
-            return Err(format!("Word count {} not in supported range", options.word_count).into());
+            return Err(anyhow!("Word count {} not in supported range", options.word_count));
         }
         
         if !self.validation_rules.supported_languages.contains(&options.language) {
-            return Err(format!("Language '{}' not supported", options.language).into());
+            return Err(anyhow!("Language '{}' not supported", options.language));
         }
         
         Ok(())

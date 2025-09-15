@@ -69,7 +69,13 @@ pub fn generate_pq_keypair(params: Option<KeyGenParams>) -> Result<PostQuantumKe
     })
 }
 
-
+/// Generate unique key ID from public key using lib-crypto's blake3 hashing
+pub fn generate_key_id_from_public_key(public_key: &[u8]) -> String {
+    use lib_crypto::hash_blake3;
+    
+    let hash = hash_blake3(public_key);
+    hex::encode(&hash[..16]) // Use first 16 bytes of blake3 hash for key ID
+}
 
 /// Derive child keys from master key using lib-crypto's key derivation
 pub fn derive_child_key(

@@ -32,6 +32,7 @@ pub use did::{
     DidDocument, ServiceEndpoint, VerificationMethod
 };
 pub use recovery::{RecoveryPhraseManager, RecoveryPhrase, PhraseGenerationOptions, EntropySource};
+pub use wallets::{WalletManager, QuantumWallet, WalletType, WalletId, WalletSummary};
 
 // External dependencies re-exports
 pub use lib_crypto as crypto;
@@ -90,6 +91,59 @@ pub async fn recover_did(seed_words: Vec<String>) -> Result<String> {
             }
         }
     }
+}
+
+/// Create a standalone quantum wallet with 20-word seed phrase (no zkDID required)
+pub async fn create_standalone_wallet(
+    wallet_name: String,
+    alias: Option<String>,
+) -> Result<(WalletId, RecoveryPhrase)> {
+    let mut wallet_manager = WalletManager::new_standalone();
+    let (wallet_id, seed_phrase) = wallet_manager.create_wallet_with_seed_phrase(
+        WalletType::Standard,
+        wallet_name,
+        alias,
+    ).await?;
+    
+    tracing::info!("🏦 Created standalone quantum wallet with 20-word seed phrase");
+    Ok((wallet_id, seed_phrase))
+}
+
+/// Recover a standalone wallet from 20-word seed phrase
+pub async fn recover_standalone_wallet(
+    seed_words: Vec<String>,
+    wallet_name: String,
+    alias: Option<String>,
+) -> Result<WalletId> {
+    if seed_words.len() != 20 {
+        return Err(anyhow::anyhow!("Exactly 20 seed phrase words required for wallet recovery"));
+    }
+    
+    let mut wallet_manager = WalletManager::new_standalone();
+    let wallet_id = wallet_manager.recover_wallet_from_seed_phrase(&seed_words, wallet_name, alias).await?;
+    
+    tracing::info!("🔓 Recovered standalone quantum wallet from seed phrase");
+    Ok(wallet_id)
+}
+
+/// Create multiple wallets with a single manager (for advanced users)
+pub async fn create_multi_wallet_system() -> Result<WalletManager> {
+    let wallet_manager = WalletManager::new_standalone();
+    
+    tracing::info!("🏦 Created multi-wallet system for managing multiple quantum wallets");
+    Ok(wallet_manager)
+}
+
+/// Demonstrate hierarchical DAO wallet functionality
+/// This showcases advanced DAO-to-DAO ownership and control structures
+pub async fn demonstrate_hierarchical_dao_system() -> Result<String> {
+    use crate::wallets::dao_hierarchy_demo;
+    
+    tracing::info!("🏛️ Starting hierarchical DAO system demonstration");
+    
+    dao_hierarchy_demo::demonstrate_dao_hierarchy()?;
+    
+    Ok("Hierarchical DAO system demonstration completed successfully. Check logs for detailed output.".to_string())
 }
 
 #[cfg(test)]

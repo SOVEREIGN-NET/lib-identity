@@ -18,6 +18,8 @@ pub struct CitizenshipResult {
     pub ubi_wallet_id: WalletId,
     /// Savings wallet for long-term storage
     pub savings_wallet_id: WalletId,
+    /// Recovery seed phrases for all wallets (CRITICAL TO SAVE!)
+    pub wallet_seed_phrases: WalletSeedPhrases,
     /// DAO governance registration
     pub dao_registration: DaoRegistration,
     /// UBI payout registration
@@ -28,6 +30,19 @@ pub struct CitizenshipResult {
     pub privacy_credentials: PrivacyCredentials,
     /// Welcome bonus details
     pub welcome_bonus: WelcomeBonus,
+}
+
+/// Wallet recovery seed phrases - MUST BE STORED SECURELY!
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WalletSeedPhrases {
+    /// Primary wallet 20-word seed phrase
+    pub primary_wallet_seeds: crate::recovery::RecoveryPhrase,
+    /// UBI wallet 20-word seed phrase
+    pub ubi_wallet_seeds: crate::recovery::RecoveryPhrase,
+    /// Savings wallet 20-word seed phrase
+    pub savings_wallet_seeds: crate::recovery::RecoveryPhrase,
+    /// Timestamp when seed phrases were generated
+    pub generated_at: u64,
 }
 
 /// Privacy-preserving credentials setup
@@ -48,6 +63,7 @@ impl CitizenshipResult {
         primary_wallet_id: WalletId,
         ubi_wallet_id: WalletId,
         savings_wallet_id: WalletId,
+        wallet_seed_phrases: WalletSeedPhrases,
         dao_registration: DaoRegistration,
         ubi_registration: UbiRegistration,
         web4_access: Web4Access,
@@ -59,6 +75,7 @@ impl CitizenshipResult {
             primary_wallet_id,
             ubi_wallet_id,
             savings_wallet_id,
+            wallet_seed_phrases,
             dao_registration,
             ubi_registration,
             web4_access,

@@ -7,6 +7,7 @@ pub mod manager_integration;
 pub mod multi_wallet;
 pub mod wallet_operations;
 pub mod wallet_types;
+pub mod dao_hierarchy_demo;
 
 // Re-exports for compatibility with original identity.rs
 pub use manager_integration::WalletManager;

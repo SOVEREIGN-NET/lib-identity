@@ -48,11 +48,11 @@ pub fn generate_pq_keypair(params: Option<KeyGenParams>) -> Result<PostQuantumKe
             (pk, sk, "CRYSTALS-Dilithium5".to_string())
         },
         _ => {
-            // Default to the full lib-crypto keypair (includes Dilithium2, Kyber512, Ed25519)
+            // Default to the pure post-quantum lib-crypto keypair (Dilithium2 + Kyber512 only)
             (
                 crypto_keypair.public_key.dilithium_pk.clone(),
                 crypto_keypair.private_key.dilithium_sk.clone(),
-                "CRYSTALS-Dilithium-Hybrid".to_string()
+                "CRYSTALS-Dilithium-PureQuantum".to_string()
             )
         }
     };

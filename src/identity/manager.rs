@@ -134,11 +134,39 @@ impl IdentityManager {
             hex::encode(&identity_id.0[..8])
         );
 
+        // TODO: Legacy method - seed phrases not available from create_wallet() method
+        // Users should use onboard_new_citizen() for full seed phrase access
+        let placeholder_seeds = crate::citizenship::onboarding::WalletSeedPhrases {
+            primary_wallet_seeds: crate::recovery::RecoveryPhrase::from_words(vec![
+                "warning".to_string(), "legacy".to_string(), "wallet".to_string(), "method".to_string(),
+                "no".to_string(), "seed".to_string(), "phrase".to_string(), "available".to_string(),
+                "use".to_string(), "onboard".to_string(), "new".to_string(), "citizen".to_string(),
+                "method".to_string(), "for".to_string(), "proper".to_string(), "recovery".to_string(),
+                "access".to_string(), "instead".to_string(), "of".to_string(), "legacy".to_string(),
+            ])?,
+            ubi_wallet_seeds: crate::recovery::RecoveryPhrase::from_words(vec![
+                "warning".to_string(), "legacy".to_string(), "wallet".to_string(), "method".to_string(),
+                "no".to_string(), "seed".to_string(), "phrase".to_string(), "available".to_string(),
+                "use".to_string(), "onboard".to_string(), "new".to_string(), "citizen".to_string(),
+                "method".to_string(), "for".to_string(), "proper".to_string(), "recovery".to_string(),
+                "access".to_string(), "instead".to_string(), "of".to_string(), "legacy".to_string(),
+            ])?,
+            savings_wallet_seeds: crate::recovery::RecoveryPhrase::from_words(vec![
+                "warning".to_string(), "legacy".to_string(), "wallet".to_string(), "method".to_string(),
+                "no".to_string(), "seed".to_string(), "phrase".to_string(), "available".to_string(),
+                "use".to_string(), "onboard".to_string(), "new".to_string(), "citizen".to_string(),
+                "method".to_string(), "for".to_string(), "proper".to_string(), "recovery".to_string(),
+                "access".to_string(), "instead".to_string(), "of".to_string(), "legacy".to_string(),
+            ])?,
+            generated_at: 0, // Placeholder
+        };
+
         Ok(CitizenshipResult::new(
             identity_id.clone(),
             primary_wallet_id,
             ubi_wallet_id,
             savings_wallet_id,
+            placeholder_seeds,
             dao_registration,
             ubi_registration,
             web4_access,
@@ -167,29 +195,29 @@ impl IdentityManager {
         // Generate ownership proof
         let ownership_proof = self.generate_ownership_proof(&private_key, &public_key).await?;
         
-        // Create primary wallets for citizen
+        // Create primary wallets for citizen WITH seed phrases
         let mut wallet_manager = crate::wallets::WalletManager::new(id.clone());
         
-        // Create primary spending wallet
-        let primary_wallet_id = wallet_manager.create_wallet(
+        // Create primary spending wallet with seed phrase
+        let (primary_wallet_id, primary_seed_phrase) = wallet_manager.create_wallet_with_seed_phrase(
             WalletType::Primary,
             "Primary Wallet".to_string(),
             None
-        )?;
+        ).await?;
         
-        // Create UBI receiving wallet
-        let ubi_wallet_id = wallet_manager.create_wallet(
+        // Create UBI receiving wallet with seed phrase
+        let (ubi_wallet_id, ubi_seed_phrase) = wallet_manager.create_wallet_with_seed_phrase(
             WalletType::UBI,
             "UBI Wallet".to_string(),
             None
-        )?;
+        ).await?;
         
-        // Create savings wallet
-        let savings_wallet_id = wallet_manager.create_wallet(
+        // Create savings wallet with seed phrase
+        let (savings_wallet_id, savings_seed_phrase) = wallet_manager.create_wallet_with_seed_phrase(
             WalletType::Savings,
             "Savings Wallet".to_string(),
             None
-        )?;
+        ).await?;
         
         // Create identity with citizen benefits
         let identity = ZhtpIdentity {
@@ -264,11 +292,22 @@ impl IdentityManager {
             hex::encode(&id.0[..8])
         );
 
+        // Compile seed phrases for secure storage
+        let wallet_seed_phrases = crate::citizenship::onboarding::WalletSeedPhrases {
+            primary_wallet_seeds: primary_seed_phrase,
+            ubi_wallet_seeds: ubi_seed_phrase,
+            savings_wallet_seeds: savings_seed_phrase,
+            generated_at: std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)?
+                .as_secs(),
+        };
+
         Ok(CitizenshipResult::new(
             id.clone(),
             primary_wallet_id,
             ubi_wallet_id,
             savings_wallet_id,
+            wallet_seed_phrases,
             dao_registration,
             ubi_registration,
             web4_access,
@@ -662,7 +701,6 @@ impl IdentityManager {
             public_key: lib_crypto::PublicKey {
                 dilithium_pk,
                 kyber_pk,
-                ed25519_pk: identity.public_key.clone(), // Fallback for compatibility
                 key_id,
             },
             algorithm: lib_crypto::SignatureAlgorithm::Dilithium2,

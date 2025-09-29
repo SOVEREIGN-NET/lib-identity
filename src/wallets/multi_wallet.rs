@@ -42,6 +42,8 @@ impl WalletManager {
         let mut stealth_wallets = Vec::new();
         let mut standard_wallets = Vec::new();
         let mut business_wallets = Vec::new();
+        let mut nonprofit_dao_wallets = Vec::new();
+        let mut forprofit_dao_wallets = Vec::new();
         
         for wallet in self.wallets.values() {
             let summary = wallet.to_summary();
@@ -52,6 +54,8 @@ impl WalletManager {
                 WalletType::Stealth => stealth_wallets.push(summary),
                 WalletType::Standard => standard_wallets.push(summary),
                 WalletType::Business => business_wallets.push(summary),
+                WalletType::NonProfitDAO => nonprofit_dao_wallets.push(summary),
+                WalletType::ForProfitDAO => forprofit_dao_wallets.push(summary),
             }
         }
         
@@ -62,6 +66,8 @@ impl WalletManager {
             stealth_wallets,
             standard_wallets,
             business_wallets,
+            nonprofit_dao_wallets,
+            forprofit_dao_wallets,
         }
     }
     
@@ -77,6 +83,8 @@ impl WalletManager {
                 WalletType::Stealth => balances.stealth_balance += wallet.balance,
                 WalletType::Standard => balances.standard_balance += wallet.balance,
                 WalletType::Business => balances.business_balance += wallet.balance,
+                WalletType::NonProfitDAO => balances.nonprofit_dao_balance += wallet.balance,
+                WalletType::ForProfitDAO => balances.forprofit_dao_balance += wallet.balance,
             }
         }
         
@@ -85,7 +93,9 @@ impl WalletManager {
                                 balances.savings_balance + 
                                 balances.stealth_balance + 
                                 balances.standard_balance +
-                                balances.business_balance;
+                                balances.business_balance +
+                                balances.nonprofit_dao_balance +
+                                balances.forprofit_dao_balance;
         
         balances
     }
@@ -108,6 +118,8 @@ pub struct WalletTypeSummary {
     pub stealth_wallets: Vec<WalletSummary>,
     pub standard_wallets: Vec<WalletSummary>,
     pub business_wallets: Vec<WalletSummary>,
+    pub nonprofit_dao_wallets: Vec<WalletSummary>,
+    pub forprofit_dao_wallets: Vec<WalletSummary>,
 }
 
 /// Balance summary by wallet type
@@ -119,6 +131,8 @@ pub struct WalletBalanceSummary {
     pub stealth_balance: u64,
     pub standard_balance: u64,
     pub business_balance: u64,
+    pub nonprofit_dao_balance: u64,
+    pub forprofit_dao_balance: u64,
     pub total_balance: u64,
 }
 
@@ -130,7 +144,14 @@ impl WalletTypeSummary {
         self.savings_wallets.len() + 
         self.stealth_wallets.len() + 
         self.standard_wallets.len() +
-        self.business_wallets.len()
+        self.business_wallets.len() +
+        self.nonprofit_dao_wallets.len() +
+        self.forprofit_dao_wallets.len()
+    }
+    
+    /// Get total DAO wallet count
+    pub fn dao_wallet_count(&self) -> usize {
+        self.nonprofit_dao_wallets.len() + self.forprofit_dao_wallets.len()
     }
     
     /// Check if citizen has required wallets

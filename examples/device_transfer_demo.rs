@@ -12,7 +12,7 @@ use lib_identity::recovery::PhraseGenerationOptions;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    println!("📱 ZHTP Device Transfer Demo");
+    println!(" ZHTP Device Transfer Demo");
     println!("═══════════════════════════════");
     println!();
 
@@ -32,7 +32,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let result = create_did_with_seed_phrase(request).await?;
     
     if let Some(seed_phrase) = &result.seed_phrase {
-        println!("✅ Created DID: {}", result.did_document.id);
+        println!("Created DID: {}", result.did_document.id);
         println!();
         
         // Step 2: Demonstrate device transfer
@@ -48,15 +48,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         ];
         
         for device_id in &devices {
-            println!("📱 Transferring to device: {}", device_id);
+            println!(" Transferring to device: {}", device_id);
             
             match transfer_did_to_device(&seed_phrase.words, device_id).await {
                 Ok(verification_code) => {
-                    println!("   ✅ Transfer code: {}", verification_code);
-                    println!("   💡 Enter this code on your {}", device_id);
+                    println!("   Transfer code: {}", verification_code);
+                    println!("   Enter this code on your {}", device_id);
                 }
                 Err(e) => {
-                    println!("   ❌ Transfer failed: {}", e);
+                    println!("   Transfer failed: {}", e);
                 }
             }
             println!();
@@ -70,18 +70,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("   • Used for cryptographic operations and verification");
         println!("   • Format: did:zhtp:[hash]");
         println!();
-        println!("📱 device_id: User-friendly device names");
+        println!(" device_id: User-friendly device names");
         println!("   • Examples: 'laptop-home', 'phone-main', 'tablet-work'");
         println!("   • Used for device management and transfer verification");
         println!("   • You choose these names for easy identification");
         println!();
-        println!("🔄 Transfer Process:");
+        println!(" Transfer Process:");
         println!("   1. Use your 12-20 word seed phrase");
         println!("   2. Specify target device_id (your device nickname)");
         println!("   3. Get verification code");
         println!("   4. Enter code on target device to complete transfer");
         println!();
-        println!("⚠️  Security Note:");
+        println!(" Security Note:");
         println!("   • Your zkDID remains the same across all devices");
         println!("   • device_id is just for convenience and organization");
         println!("   • Seed phrase gives you full control of your zkDID");

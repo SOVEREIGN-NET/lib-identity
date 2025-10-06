@@ -82,7 +82,7 @@ impl Web4Access {
         );
 
         tracing::info!(
-            "🌐 WEB4 ACCESS GRANTED: Citizen {} has full access to {} services",
+            "WEB4 ACCESS GRANTED: Citizen {} has full access to {} services",
             hex::encode(&identity_id.0[..8]),
             service_tokens.len()
         );

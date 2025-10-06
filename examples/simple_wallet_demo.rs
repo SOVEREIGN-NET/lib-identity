@@ -21,14 +21,14 @@ async fn main() -> Result<()> {
         Some("test".to_string()),
     ).await?;
     
-    println!("✅ Wallet created successfully!");
+    println!("Wallet created successfully!");
     println!("   Wallet ID: {}", hex::encode(&wallet_id.0));
     println!("   Seed Words: {}", seed_phrase.words.len());
     println!("   Language: {}", seed_phrase.language);
     println!();
     
     // Show the actual seed phrase words
-    println!("🔐 SEED PHRASE WORDS:");
+    println!("SEED PHRASE WORDS:");
     for (i, word) in seed_phrase.words.iter().enumerate() {
         println!("   {:2}. {}", i + 1, word);
     }
@@ -51,13 +51,13 @@ async fn main() -> Result<()> {
         Some("save".to_string()),
     ).await?;
     
-    println!("✅ Multi-wallet system created:");
+    println!("Multi-wallet system created:");
     println!("   Primary: {}", hex::encode(&primary.0.0));
     println!("   Savings: {}", hex::encode(&savings.0.0));
     println!();
 
     // Show complete wallet summaries
-    println!("📋 COMPLETE WALLET INFORMATION:");
+    println!("COMPLETE WALLET INFORMATION:");
     println!("──────────────────────────────────");
     let summaries = wallet_system.list_wallets();
     for (i, summary) in summaries.iter().enumerate() {
@@ -81,14 +81,14 @@ async fn main() -> Result<()> {
     }
 
     // Show system stats
-    println!("📊 SYSTEM STATISTICS:");
+    println!("SYSTEM STATISTICS:");
     println!("──────────────────────");
     println!("Total Wallets: {}", wallet_system.wallet_count());
     println!("Standalone Wallets: {}", wallet_system.standalone_wallet_count());
     println!("Total Balance: {} ZHTP", wallet_system.calculate_total_balance());
     println!();
 
-    println!("✅ Demo completed - All wallet information displayed!");
+    println!("Demo completed - All wallet information displayed!");
     
     Ok(())
 }

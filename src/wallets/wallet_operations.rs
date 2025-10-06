@@ -5,6 +5,41 @@ use lib_crypto::Hash;
 use crate::wallets::{WalletManager, WalletId};
 
 impl WalletManager {
+    /// Create a basic wallet for testing purposes (bypasses seed phrase requirement)
+    #[cfg(test)]
+    pub fn create_wallet_for_testing(
+        &mut self,
+        wallet_type: WalletType,
+        name: String,
+        alias: Option<String>,
+    ) -> Result<WalletId> {
+        // Generate quantum-resistant public key
+        let mut public_key = vec![0u8; 32];
+        use rand::RngCore;
+        rand::thread_rng().fill_bytes(&mut public_key);
+        
+        // Create the wallet without seed phrase for testing
+        let wallet = crate::wallets::QuantumWallet::new(
+            wallet_type,
+            name,
+            alias.clone(),
+            self.owner_id.clone(),
+            public_key,
+        );
+        
+        let wallet_id = wallet.id.clone();
+        
+        // Store wallet
+        self.wallets.insert(wallet_id.clone(), wallet);
+        
+        // Store alias mapping if provided
+        if let Some(alias) = alias {
+            self.alias_map.insert(alias, wallet_id.clone());
+        }
+        
+        Ok(wallet_id)
+    }
+
     /// Add funds to a wallet
     pub fn add_funds_to_wallet(&mut self, wallet_id: &WalletId, amount: u64) -> Result<()> {
         let new_balance = if let Some(wallet) = self.wallets.get_mut(wallet_id) {
@@ -452,13 +487,13 @@ mod tests {
         let mut manager = WalletManager::new(owner_id);
         
         // Create UBI wallets
-        let ubi_wallet1 = manager.create_wallet(
+        let ubi_wallet1 = manager.create_wallet_for_testing(
             crate::wallets::WalletType::UBI,
             "UBI Wallet 1".to_string(),
             Some("ubi1".to_string()),
         ).unwrap();
         
-        let ubi_wallet2 = manager.create_wallet(
+        let ubi_wallet2 = manager.create_wallet_for_testing(
             crate::wallets::WalletType::UBI,
             "UBI Wallet 2".to_string(),
             Some("ubi2".to_string()),
@@ -482,13 +517,13 @@ mod tests {
         let owner_id = Hash([1u8; 32]);
         let mut manager = WalletManager::new(owner_id);
         
-        let wallet1 = manager.create_wallet(
+        let wallet1 = manager.create_wallet_for_testing(
             crate::wallets::WalletType::Primary,
             "Wallet 1".to_string(),
             None,
         ).unwrap();
         
-        let wallet2 = manager.create_wallet(
+        let wallet2 = manager.create_wallet_for_testing(
             crate::wallets::WalletType::Savings,
             "Wallet 2".to_string(),
             None,
@@ -519,13 +554,13 @@ mod tests {
         let mut manager = WalletManager::new(owner_id);
         
         // Create some wallets
-        let _wallet1 = manager.create_wallet(
+        let _wallet1 = manager.create_wallet_for_testing(
             crate::wallets::WalletType::Primary,
             "Healthy Wallet".to_string(),
             None,
         ).unwrap();
         
-        let _wallet2 = manager.create_wallet(
+        let _wallet2 = manager.create_wallet_for_testing(
             crate::wallets::WalletType::UBI,
             "Another Healthy Wallet".to_string(),
             None,
@@ -545,13 +580,13 @@ mod tests {
         let owner_id = Hash([1u8; 32]);
         let mut manager = WalletManager::new(owner_id);
         
-        let wallet1 = manager.create_wallet(
+        let wallet1 = manager.create_wallet_for_testing(
             crate::wallets::WalletType::Primary,
             "Staking Wallet 1".to_string(),
             None,
         ).unwrap();
         
-        let wallet2 = manager.create_wallet(
+        let wallet2 = manager.create_wallet_for_testing(
             crate::wallets::WalletType::Savings,
             "Staking Wallet 2".to_string(),
             None,
@@ -583,19 +618,19 @@ mod tests {
         let owner_id = Hash([1u8; 32]);
         let mut manager = WalletManager::new(owner_id);
         
-        let source_wallet = manager.create_wallet(
+        let source_wallet = manager.create_wallet_for_testing(
             crate::wallets::WalletType::Primary,
             "Source Wallet".to_string(),
             None,
         ).unwrap();
         
-        let dest1 = manager.create_wallet(
+        let dest1 = manager.create_wallet_for_testing(
             crate::wallets::WalletType::Savings,
             "Dest 1".to_string(),
             None,
         ).unwrap();
         
-        let dest2 = manager.create_wallet(
+        let dest2 = manager.create_wallet_for_testing(
             crate::wallets::WalletType::Business,
             "Dest 2".to_string(),
             None,

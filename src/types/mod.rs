@@ -11,5 +11,5 @@ pub use credential_types::*;
 pub use proof_params::*;
 pub use verification_result::*;
 
-// DID-related types from did module
-pub use crate::did::{DIDCreationRequest, DIDCreationResult, SeedPhraseBackup, DIDRecoveryOptions};
+// DID-related types from did module (remaining types after cleanup)
+// Note: Removed placeholder creation types - use IdentityManager::create_citizen_identity() instead

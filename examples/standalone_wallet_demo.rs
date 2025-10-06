@@ -25,7 +25,7 @@ async fn main() -> Result<()> {
         Some("primary".to_string()),
     ).await?;
     
-    println!("✅ Standalone wallet created:");
+    println!("Standalone wallet created:");
     println!("   Wallet ID: {}", hex::encode(&wallet_id.0[..8]));
     println!("   Seed Phrase: {} words generated", seed_phrase.words.len());
     println!();
@@ -38,7 +38,7 @@ async fn main() -> Result<()> {
         Some("recovered".to_string()),
     ).await?;
     
-    println!("✅ Wallet recovered successfully:");
+    println!("Wallet recovered successfully:");
     println!("   Recovered Wallet ID: {}", hex::encode(&recovered_wallet_id.0[..8]));
     println!();
 
@@ -65,7 +65,7 @@ async fn main() -> Result<()> {
         Some("biz".to_string()),
     ).await?;
     
-    println!("✅ Multi-wallet system created:");
+    println!("Multi-wallet system created:");
     println!("   Primary Wallet: {}", hex::encode(&primary_wallet.0.0[..8]));
     println!("   Savings Wallet: {}", hex::encode(&savings_wallet.0.0[..8]));
     println!("   Business Wallet: {}", hex::encode(&business_wallet.0.0[..8]));
@@ -105,14 +105,14 @@ async fn main() -> Result<()> {
     // Step 6: Security reminders
     println!("6️⃣ Security Best Practices:");
     println!("   🛡️  Each wallet has its own 20-word seed phrase");
-    println!("   📝 Write down seed phrases on paper, store offline");
-    println!("   🔄 Each wallet can be recovered independently");
+    println!("   Write down seed phrases on paper, store offline");
+    println!("    Each wallet can be recovered independently");
     println!("   🚫 Never share seed phrases digitally or online");
     println!("   💾 Consider multiple backup copies in secure locations");
-    println!("   ✅ Test recovery process before storing large amounts");
+    println!("   Test recovery process before storing large amounts");
     println!();
 
-    println!("✅ Standalone wallet demo completed successfully!");
+    println!("Standalone wallet demo completed successfully!");
     println!("Your quantum wallets are now ready for use without any zkDID dependency.");
     
     Ok(())
@@ -120,7 +120,7 @@ async fn main() -> Result<()> {
 
 /// Example of advanced wallet operations
 pub async fn advanced_wallet_operations() -> Result<()> {
-    println!("\n🔧 Advanced Standalone Wallet Operations");
+    println!("\nAdvanced Standalone Wallet Operations");
     println!("──────────────────────────────────────────");
     
     let mut wallet_manager = WalletManager::new_standalone();
@@ -138,12 +138,12 @@ pub async fn advanced_wallet_operations() -> Result<()> {
         Some("private".to_string()),
     ).await?;
     
-    println!("✅ Specialized wallets created:");
+    println!("Specialized wallets created:");
     println!("   Trading Wallet: {} (for DeFi operations)", hex::encode(&trading_wallet.0.0[..8]));
     println!("   Stealth Wallet: {} (for private transactions)", hex::encode(&stealth_wallet.0.0[..8]));
     
     // Show wallet statistics
-    println!("\n📊 Wallet Statistics:");
+    println!("\nWallet Statistics:");
     println!("   Total Wallets: {}", wallet_manager.wallet_count());
     println!("   Standalone Wallets: {}", wallet_manager.standalone_wallet_count());
     println!("   Total Balance: {} ZHTP", wallet_manager.calculate_total_balance());

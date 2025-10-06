@@ -15,6 +15,7 @@ use crate::credentials::ZkCredential;
 use crate::citizenship::{CitizenshipResult, onboarding::PrivacyCredentials};
 use crate::economics::EconomicModel;
 use crate::wallets::WalletType;
+use crate::auth::{PasswordManager, PasswordError, PasswordValidation};
 
 /// Identity Manager for ZHTP - Complete implementation from original identity.rs
 pub struct IdentityManager {
@@ -26,6 +27,8 @@ pub struct IdentityManager {
     trusted_issuers: HashMap<IdentityId, Vec<CredentialType>>,
     /// Identity verification cache
     verification_cache: HashMap<IdentityId, IdentityVerification>,
+    /// Password manager for imported identities
+    password_manager: PasswordManager,
 }
 
 impl IdentityManager {
@@ -36,147 +39,24 @@ impl IdentityManager {
             private_data: HashMap::new(),
             trusted_issuers: HashMap::new(),
             verification_cache: HashMap::new(),
+            password_manager: PasswordManager::new(),
         }
     }
+
+
 
     /// 🌟 COMPLETE CITIZEN ONBOARDING SYSTEM 🌟
     /// 
     /// Creates a ZK-DID and automatically:
     /// 1. Creates soulbound ZK-DID (1:1 per human)
-    /// 2. Creates quantum-resistant wallet
+    /// 2. Creates quantum-resistant wallets with real seed phrases
     /// 3. Registers for DAO governance and UBI payouts
     /// 4. Grants access to all Web4 services
     /// 5. Sets up privacy-preserving credentials
+    /// 6. Provides welcome bonus
+    /// 
+    /// This is the primary method for creating new citizens.
     pub async fn create_citizen_identity(
-        &mut self,
-        recovery_options: Vec<String>,
-        economic_model: &mut EconomicModel,
-    ) -> Result<CitizenshipResult> {
-        // 1. 🆔 CREATE SOULBOUND ZK-DID
-        let (private_key, public_key) = self.generate_pq_keypair().await?;
-        let mut seed = [0u8; 32];
-        rand::thread_rng().fill_bytes(&mut seed);
-        
-        let identity_id = Hash::from_bytes(&blake3::hash(&public_key).as_bytes()[..32]);
-        let ownership_proof = self.generate_ownership_proof(&private_key, &public_key).await?;
-        
-        // Create soulbound identity (only one per human)
-        let mut identity = ZhtpIdentity {
-            id: identity_id.clone(),
-            identity_type: IdentityType::Human, // Soulbound human identity
-            public_key: public_key.clone(),
-            ownership_proof,
-            credentials: HashMap::new(),
-            reputation: 1000, // New citizens start with good reputation
-            age: None,
-            access_level: AccessLevel::FullCitizen,
-            metadata: HashMap::new(),
-            private_data_id: Some(identity_id.clone()),
-            wallet_manager: crate::wallets::WalletManager::new(identity_id.clone()),
-            did_document_hash: None,
-            attestations: Vec::new(),
-            created_at: std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)?
-                .as_secs(),
-            last_active: std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)?
-                .as_secs(),
-            recovery_keys: vec![],
-        };
-
-        // 2. 🔒 CREATE QUANTUM-RESISTANT WALLETS
-        let primary_wallet_id = identity.create_wallet(
-            WalletType::Standard,
-            "Primary Wallet".to_string(),
-            Some("primary".to_string()),
-        )?;
-
-        // Create UBI wallet for automatic payouts
-        let ubi_wallet_id = identity.create_wallet(
-            WalletType::UBI,
-            "UBI Wallet".to_string(),
-            Some("ubi".to_string()),
-        )?;
-
-        // Create savings wallet for long-term storage
-        let savings_wallet_id = identity.create_wallet(
-            WalletType::Stealth,
-            "Savings Wallet".to_string(),
-            Some("savings".to_string()),
-        )?;
-
-        // 3. 🏛️ REGISTER FOR DAO GOVERNANCE & UBI
-        let dao_registration = crate::citizenship::DaoRegistration::register_for_dao_governance(&identity_id, economic_model).await?;
-        let ubi_registration = crate::citizenship::UbiRegistration::register_for_ubi_payouts(&identity_id, &ubi_wallet_id, economic_model).await?;
-
-        // 4. 🌐 GRANT ACCESS TO WEB4 SERVICES
-        let web4_access = crate::citizenship::Web4Access::grant_web4_access(&identity_id).await?;
-
-        // 5. 🛡️ SET UP PRIVACY CREDENTIALS
-        let privacy_credentials = self.setup_privacy_credentials(&mut identity).await?;
-
-        // 6. 💰 PROVIDE WELCOME BONUS
-        let welcome_bonus = crate::citizenship::WelcomeBonus::provide_welcome_bonus(&identity_id, &primary_wallet_id, economic_model).await?;
-
-        // Store identity and private data
-        let private_data = PrivateIdentityData::new(
-            private_key,
-            public_key.clone(),
-            seed,
-            recovery_options,
-        );
-
-        self.identities.insert(identity_id.clone(), identity);
-        self.private_data.insert(identity_id.clone(), private_data);
-
-        tracing::info!(
-            "🎉 NEW CITIZEN ONBOARDED: {} - Full Web4 access granted with UBI eligibility",
-            hex::encode(&identity_id.0[..8])
-        );
-
-        // TODO: Legacy method - seed phrases not available from create_wallet() method
-        // Users should use onboard_new_citizen() for full seed phrase access
-        let placeholder_seeds = crate::citizenship::onboarding::WalletSeedPhrases {
-            primary_wallet_seeds: crate::recovery::RecoveryPhrase::from_words(vec![
-                "warning".to_string(), "legacy".to_string(), "wallet".to_string(), "method".to_string(),
-                "no".to_string(), "seed".to_string(), "phrase".to_string(), "available".to_string(),
-                "use".to_string(), "onboard".to_string(), "new".to_string(), "citizen".to_string(),
-                "method".to_string(), "for".to_string(), "proper".to_string(), "recovery".to_string(),
-                "access".to_string(), "instead".to_string(), "of".to_string(), "legacy".to_string(),
-            ])?,
-            ubi_wallet_seeds: crate::recovery::RecoveryPhrase::from_words(vec![
-                "warning".to_string(), "legacy".to_string(), "wallet".to_string(), "method".to_string(),
-                "no".to_string(), "seed".to_string(), "phrase".to_string(), "available".to_string(),
-                "use".to_string(), "onboard".to_string(), "new".to_string(), "citizen".to_string(),
-                "method".to_string(), "for".to_string(), "proper".to_string(), "recovery".to_string(),
-                "access".to_string(), "instead".to_string(), "of".to_string(), "legacy".to_string(),
-            ])?,
-            savings_wallet_seeds: crate::recovery::RecoveryPhrase::from_words(vec![
-                "warning".to_string(), "legacy".to_string(), "wallet".to_string(), "method".to_string(),
-                "no".to_string(), "seed".to_string(), "phrase".to_string(), "available".to_string(),
-                "use".to_string(), "onboard".to_string(), "new".to_string(), "citizen".to_string(),
-                "method".to_string(), "for".to_string(), "proper".to_string(), "recovery".to_string(),
-                "access".to_string(), "instead".to_string(), "of".to_string(), "legacy".to_string(),
-            ])?,
-            generated_at: 0, // Placeholder
-        };
-
-        Ok(CitizenshipResult::new(
-            identity_id.clone(),
-            primary_wallet_id,
-            ubi_wallet_id,
-            savings_wallet_id,
-            placeholder_seeds,
-            dao_registration,
-            ubi_registration,
-            web4_access,
-            privacy_credentials,
-            welcome_bonus,
-        ))
-    }
-
-    /// Complete citizen onboarding with UBI, DAO access, and Web4 services
-    pub async fn onboard_new_citizen(
         &mut self,
         display_name: String,
         recovery_options: Vec<String>,
@@ -232,7 +112,6 @@ impl IdentityManager {
             metadata: HashMap::new(),
             private_data_id: Some(id.clone()),
             wallet_manager,
-            did_document_hash: None,
             attestations: Vec::new(),
             created_at: std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)?
@@ -241,6 +120,7 @@ impl IdentityManager {
                 .duration_since(std::time::UNIX_EPOCH)?
                 .as_secs(),
             recovery_keys: vec![],
+            did_document_hash: None,
         };
         
         // Store private data
@@ -286,8 +166,11 @@ impl IdentityManager {
         self.identities.insert(id.clone(), identity);
         self.private_data.insert(id.clone(), private_data);
 
+        // Mark identity as imported (enables password functionality)
+        self.password_manager.mark_identity_imported(&id);
+
         tracing::info!(
-            "🎉 NEW CITIZEN ONBOARDED: {} ({}) - Full Web4 access granted with UBI eligibility",
+            " NEW CITIZEN ONBOARDED: {} ({}) - Full Web4 access granted with UBI eligibility",
             display_name,
             hex::encode(&id.0[..8])
         );
@@ -316,62 +199,7 @@ impl IdentityManager {
         ))
     }
 
-    /// Legacy method for creating basic identities (non-citizens)
-    pub async fn create_identity(
-        &mut self,
-        identity_type: IdentityType,
-        recovery_options: Vec<String>,
-    ) -> Result<IdentityId> {
-        // Generate quantum-resistant key pair
-        let (private_key, public_key) = self.generate_pq_keypair().await?;
-        
-        // Generate identity seed
-        let mut seed = [0u8; 32];
-        rand::thread_rng().fill_bytes(&mut seed);
-        
-        // Create identity ID from public key
-        let id = Hash::from_bytes(&blake3::hash(&public_key).as_bytes()[..32]);
-        
-        // Generate ownership proof
-        let ownership_proof = self.generate_ownership_proof(&private_key, &public_key).await?;
-        
-        // Create identity (no automatic citizen benefits for non-humans)
-        let identity = ZhtpIdentity {
-            id: id.clone(),
-            identity_type,
-            public_key: public_key.clone(),
-            ownership_proof,
-            credentials: HashMap::new(),
-            reputation: 100, // Starting reputation
-            age: None,
-            access_level: AccessLevel::Visitor,
-            metadata: HashMap::new(),
-            private_data_id: Some(id.clone()),
-            wallet_manager: crate::wallets::WalletManager::new(id.clone()),
-            did_document_hash: None,
-            attestations: Vec::new(),
-            created_at: std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)?
-                .as_secs(),
-            last_active: std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)?
-                .as_secs(),
-            recovery_keys: vec![],
-        };
-        
-        // Store private data
-        let private_data = PrivateIdentityData::new(
-            private_key,
-            public_key,
-            seed,
-            recovery_options,
-        );
-        
-        self.identities.insert(id.clone(), identity);
-        self.private_data.insert(id.clone(), private_data);
-        
-        Ok(id)
-    }
+
 
     /// Get identity by ID
     pub fn get_identity(&self, identity_id: &IdentityId) -> Option<&ZhtpIdentity> {
@@ -397,6 +225,7 @@ impl IdentityManager {
     // Private helper methods from the original identity.rs
     
     /// Set up privacy-preserving credentials - REAL IMPLEMENTATION FROM ORIGINAL
+    #[cfg(test)]
     async fn setup_privacy_credentials(&self, identity: &mut ZhtpIdentity) -> Result<PrivacyCredentials> {
         let current_time = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)?
@@ -706,6 +535,115 @@ impl IdentityManager {
             algorithm: lib_crypto::SignatureAlgorithm::Dilithium2,
             timestamp,
         })
+    }
+
+    /// Import an identity from 20-word recovery phrase (enables password functionality)
+    pub async fn import_identity_from_phrase(
+        &mut self,
+        recovery_phrase: &str,
+    ) -> Result<IdentityId> {
+        use crate::recovery::RecoveryPhraseManager;
+        
+        let recovery_manager = RecoveryPhraseManager::new();
+        
+        // Validate and parse recovery phrase
+        let phrase_words: Vec<String> = recovery_phrase.split_whitespace()
+            .map(|s| s.to_string())
+            .collect();
+        
+        if phrase_words.len() != 20 {
+            return Err(anyhow!("Recovery phrase must be exactly 20 words"));
+        }
+        
+        // Derive identity from recovery phrase
+        let (identity_id, private_key, public_key, seed) = recovery_manager.restore_from_phrase(&phrase_words).await?;
+        
+        // Create identity structure
+        let identity = ZhtpIdentity {
+            id: identity_id.clone(),
+            identity_type: IdentityType::Human,
+            public_key: public_key.clone(),
+            ownership_proof: self.generate_ownership_proof(&private_key, &public_key).await?,
+            credentials: HashMap::new(),
+            reputation: 100, // Base reputation for imported identity
+            age: None,
+            access_level: AccessLevel::FullCitizen, // Can be upgraded after verification
+            metadata: HashMap::new(),
+            private_data_id: Some(identity_id.clone()),
+            wallet_manager: crate::wallets::WalletManager::new(identity_id.clone()),
+            attestations: Vec::new(),
+            created_at: std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)?
+                .as_secs(),
+            last_active: std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)?
+                .as_secs(),
+            recovery_keys: vec![],
+            did_document_hash: None,
+        };
+        
+        // Create private data
+        let private_data = PrivateIdentityData::new(
+            private_key,
+            public_key,
+            seed,
+            vec![], // No additional recovery options for imported identities
+        );
+        
+        // Store identity and private data
+        self.identities.insert(identity_id.clone(), identity);
+        self.private_data.insert(identity_id.clone(), private_data);
+        
+        // Mark as imported (enables password functionality)
+        self.password_manager.mark_identity_imported(&identity_id);
+        
+        tracing::info!(
+            "📥 IDENTITY IMPORTED: {} - Password functionality enabled",
+            hex::encode(&identity_id.0[..8])
+        );
+        
+        Ok(identity_id)
+    }
+
+    /// Set password for an imported identity
+    pub fn set_identity_password(
+        &mut self,
+        identity_id: &IdentityId,
+        password: &str,
+    ) -> Result<(), PasswordError> {
+        let private_data = self.private_data.get(identity_id)
+            .ok_or(PasswordError::IdentityNotImported)?;
+        
+        let seed = private_data.seed();
+        self.password_manager.set_password(identity_id, password, seed)
+    }
+
+    /// Validate password for signin
+    pub fn validate_identity_password(
+        &self,
+        identity_id: &IdentityId,
+        password: &str,
+    ) -> Result<PasswordValidation, PasswordError> {
+        let private_data = self.private_data.get(identity_id)
+            .ok_or(PasswordError::IdentityNotImported)?;
+        
+        let seed = private_data.seed();
+        self.password_manager.validate_password(identity_id, password, seed)
+    }
+
+    /// Check if identity has password set
+    pub fn has_password(&self, identity_id: &IdentityId) -> bool {
+        self.password_manager.has_password(identity_id)
+    }
+
+    /// Check if identity is imported (can use passwords)
+    pub fn is_identity_imported(&self, identity_id: &IdentityId) -> bool {
+        self.password_manager.is_identity_imported(identity_id)
+    }
+
+    /// List all identities that can use passwords
+    pub fn list_password_enabled_identities(&self) -> Vec<&IdentityId> {
+        self.password_manager.list_imported_identities()
     }
 
     async fn verify_credential_proof(&self, credential: &ZkCredential) -> Result<bool> {

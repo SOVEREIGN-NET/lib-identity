@@ -6,7 +6,6 @@ use serde::{Deserialize, Serialize};
 use sha2::Digest;
 use tokio::time::Instant;
 use anyhow::{Result, anyhow};
-use names::{Generator, Name};
 use rand;
 
 /// Recovery phrase manager for mnemonic-based identity recovery
@@ -926,6 +925,60 @@ impl RecoveryPhraseManager {
         }
         
         Ok(())
+    }
+
+    /// Restore identity from 20-word recovery phrase
+    pub async fn restore_from_phrase(&self, phrase_words: &[String]) -> Result<(crate::types::IdentityId, Vec<u8>, Vec<u8>, [u8; 32])> {
+        use lib_crypto::{hash_blake3, derive_keys};
+        use crate::types::IdentityId;
+        
+        // Validate phrase format
+        if phrase_words.len() != 20 {
+            return Err(anyhow!("Recovery phrase must be exactly 20 words, got {}", phrase_words.len()));
+        }
+        
+        // Join words to create seed material
+        let phrase_text = phrase_words.join(" ");
+        
+        // Derive entropy from phrase using Blake3
+        let phrase_hash = hash_blake3(phrase_text.as_bytes());
+        
+        // Generate identity seed from phrase
+        let seed_material = [
+            phrase_hash.as_slice(),
+            b"ZHTP_identity_seed_v1"
+        ].concat();
+        let identity_seed_hash = hash_blake3(&seed_material);
+        let mut seed = [0u8; 32];
+        seed.copy_from_slice(&identity_seed_hash);
+        
+        // Derive private key from seed
+        let private_key_material = derive_keys(
+            &seed,
+            b"ZHTP_private_key_derivation",
+            64
+        )?;
+        
+        // Derive public key from private key
+        let public_key_material = [
+            &private_key_material[..32],
+            b"ZHTP_public_key_derivation"
+        ].concat();
+        let public_key = hash_blake3(&public_key_material).to_vec();
+        
+        // Create identity ID from public key
+        let identity_id_hash = hash_blake3(&[
+            public_key.as_slice(),
+            b"ZHTP_identity_id"
+        ].concat());
+        let identity_id = lib_crypto::Hash::from_bytes(&identity_id_hash);
+        
+        tracing::info!(
+            "🔓 Identity restored from recovery phrase: {}",
+            hex::encode(&identity_id.0[..8])
+        );
+        
+        Ok((identity_id, private_key_material, public_key, seed))
     }
 }
 

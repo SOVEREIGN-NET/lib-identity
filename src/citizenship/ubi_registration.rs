@@ -91,7 +91,7 @@ impl UbiRegistration {
         );
 
         tracing::info!(
-            "💰 UBI REGISTERED: Citizen {} eligible for {} ZHTP daily ({} ZHTP monthly)",
+            "UBI REGISTERED: Citizen {} eligible for {} ZHTP daily ({} ZHTP monthly)",
             hex::encode(&identity_id.0[..8]),
             daily_ubi_amount,
             monthly_ubi_amount

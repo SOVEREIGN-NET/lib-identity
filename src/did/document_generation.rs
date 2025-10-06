@@ -3,17 +3,11 @@
 // REAL IMPLEMENTATIONS from original identity.rs
 
 use crate::identity::ZhtpIdentity;
-use crate::recovery::{RecoveryPhraseManager, PhraseGenerationOptions, EntropySource, RecoveryPhrase};
+// Removed unused recovery imports after cleanup
 use serde::{Deserialize, Serialize};
-use anyhow::{Result, anyhow};
+// Removed unused anyhow import after cleanup
 
-// For base64 encoding - in real implementation, use proper base64 crate
-mod base64 {
-    pub fn encode(input: &[u8]) -> String {
-        // Simple base64-like encoding for demo
-        hex::encode(input)
-    }
-}
+// Note: base64 encoding removed after cleanup - no longer needed
 
 /// W3C DID Document structure
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -40,6 +34,21 @@ pub struct DidDocument {
     pub version_id: u32,
 }
 
+impl DidDocument {
+    /// Create a DID document from a ZHTP identity (one-way relationship)
+    /// This is the canonical way to generate DID documents
+    pub fn from_identity(identity: &ZhtpIdentity, base_url: Option<&str>) -> Result<Self, String> {
+        generate_did_document(identity, base_url)
+    }
+    
+    /// Get the DID document as a hash for storage/reference
+    pub fn to_hash(&self) -> Result<lib_crypto::Hash, String> {
+        let serialized = serde_json::to_vec(self)
+            .map_err(|e| format!("Failed to serialize DID document: {}", e))?;
+        Ok(lib_crypto::Hash::from_bytes(&lib_crypto::hash_blake3(&serialized)))
+    }
+}
+
 /// DID Verification Method
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VerificationMethod {
@@ -61,117 +70,9 @@ pub struct ServiceEndpoint {
     pub service_endpoint: String,
 }
 
-/// DID creation request with seed phrase support
-#[derive(Debug, Clone)]
-pub struct DIDCreationRequest {
-    pub identity: ZhtpIdentity,
-    pub generate_seed_phrase: bool,
-    pub word_count: Option<usize>,
-    pub language: Option<String>,
-    pub base_url: Option<String>,
-    pub additional_services: Vec<ServiceEndpoint>,
-}
 
-/// DID creation result with seed phrase
-#[derive(Debug, Clone)]
-pub struct DIDCreationResult {
-    pub did_document: DidDocument,
-    pub seed_phrase: Option<RecoveryPhrase>,
-    pub seed_commitment: Option<String>,
-    pub recovery_instructions: String,
-}
 
-/// Seed phrase backup package
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SeedPhraseBackup {
-    pub did_id: String,
-    pub encrypted_seed_phrase: String,
-    pub qr_code_data: String,
-    pub backup_timestamp: u64,
-    pub recovery_instructions: String,
-}
 
-/// Create DID with 20-word seed phrase for secure recovery and transfer
-/// This is the main function users should call for DID creation
-pub async fn create_did_with_seed_phrase(
-    request: DIDCreationRequest,
-) -> Result<DIDCreationResult, anyhow::Error> {
-    // Configure recovery manager with relaxed security for demo
-    let mut demo_security = crate::recovery::PhraseSecuritySettings::default();
-    demo_security.require_additional_auth = false; // Disable for demo
-    let mut recovery_manager = RecoveryPhraseManager::with_security_settings(demo_security);
-    
-    // Generate 20-word seed phrase if requested
-    let seed_phrase = if request.generate_seed_phrase {
-        
-        let options = PhraseGenerationOptions {
-            word_count: request.word_count.unwrap_or(20),
-            language: request.language.unwrap_or_else(|| "english".to_string()),
-            entropy_source: EntropySource::SystemRandom,
-            include_checksum: true,
-            custom_wordlist: None,
-        };
-        
-        let identity_id = hex::encode(&request.identity.id.0);
-        let phrase = recovery_manager.generate_recovery_phrase(&identity_id, options).await?;
-        
-        // Store the recovery phrase securely
-        let _phrase_id = recovery_manager.store_recovery_phrase(
-            &identity_id,
-            &phrase,
-            None, // No additional auth needed now
-        ).await?;
-        
-        println!("🔐 GENERATED 20-WORD DID RECOVERY SEED PHRASE:");
-        println!("┌─────────────────────────────────────────────────────────────┐");
-        println!("│ {}   │", phrase.words.join(" "));
-        println!("└─────────────────────────────────────────────────────────────┘");
-        println!("⚠️  CRITICAL SECURITY NOTICE:");
-        println!("   • Write down these 20 words in the exact order shown");
-        println!("   • Store in multiple secure, offline locations");
-        println!("   • This phrase can recover your entire DID on any device");
-        println!("   • Never share, email, or store digitally");
-        println!("   • Loss of this phrase = permanent loss of DID access");
-        
-        Some(phrase)
-    } else {
-        None
-    };
-    
-    // Generate DID document
-    let base_url = request.base_url.as_deref();
-    let mut did_document = generate_did_document(&request.identity, base_url)
-        .map_err(|e| anyhow!("Failed to generate DID document: {}", e))?;
-    
-    // Add seed commitment to DID document if seed phrase was generated
-    let seed_commitment = if let Some(ref phrase) = seed_phrase {
-        let commitment = generate_seed_commitment(phrase)?;
-        
-        // Add seed commitment as a service endpoint for recovery
-        did_document.service.push(ServiceEndpoint {
-            id: format!("{}#seedCommitment", did_document.id),
-            service_type: "SeedPhraseCommitment".to_string(),
-            service_endpoint: commitment.clone(),
-        });
-        
-        Some(commitment)
-    } else {
-        None
-    };
-    
-    // Add additional services if provided
-    did_document.service.extend(request.additional_services);
-    
-    // Generate recovery instructions
-    let recovery_instructions = generate_recovery_instructions(&did_document, seed_phrase.is_some(), &recovery_manager);
-    
-    Ok(DIDCreationResult {
-        did_document,
-        seed_phrase,
-        seed_commitment,
-        recovery_instructions,
-    })
-}
 
 /// Generate W3C DID Document for ZHTP identity
 /// Implementation from original identity.rs lines 1500-1600
@@ -414,188 +315,19 @@ pub fn resolve_did(did: &str) -> Result<DidDocument, String> {
     Err(format!("DID resolution not implemented for: {}", did))
 }
 
-/// Recover DID from 20-word seed phrase
-pub async fn recover_did_from_seed_phrase(
-    seed_words: &[String],
-    _recovery_options: Option<DIDRecoveryOptions>,
-) -> Result<DIDCreationResult, anyhow::Error> {
-    let mut recovery_manager = RecoveryPhraseManager::new();
-    
-    // Validate seed phrase format
-    if seed_words.len() != 20 {
-        return Err(anyhow!("DID recovery requires exactly 20 words"));
-    }
-    
-    // Recover identity using seed phrase
-    let identity_id = recovery_manager.recover_identity_with_phrase(seed_words, None).await?;
-    
-    println!("✅ Successfully recovered DID identity: {}", identity_id);
-    
-    // Reconstruct DID from recovered identity
-    // Note: In a real implementation, you would reconstruct the full ZhtpIdentity
-    // For now, we'll create a placeholder that shows the recovery worked
-    
-    let recovery_message = format!(
-        "DID recovery successful! Identity {} has been restored from seed phrase. \
-        All original DID capabilities, services, and verification methods are now available.",
-        identity_id
-    );
-    
-    println!("{}", recovery_message);
-    
-    // Return success result (in real implementation, would return full DID)
-    Err(anyhow!("DID recovery implementation requires full identity reconstruction - placeholder successful"))
-}
 
-/// Transfer DID to new device using seed phrase
-/// 
-/// Note: `target_device_id` is a user-friendly device identifier (e.g., "laptop-2024", "phone-main")
-/// This is different from zkDID, which is the actual zero-knowledge decentralized identifier.
-/// The device_id is used for device management and verification codes.
-pub async fn transfer_did_to_device(
-    seed_words: &[String],
-    target_device_id: &str,
-) -> Result<String, anyhow::Error> {
-    println!("🔄 Initiating DID transfer to device: {}", target_device_id);
-    
-    // Recover DID from seed phrase
-    let mut recovery_manager = RecoveryPhraseManager::new();
-    let identity_id = recovery_manager.recover_identity_with_phrase(seed_words, None).await?;
-    
-    // Generate device-specific verification
-    let device_verification_code = generate_device_verification_code(&identity_id, target_device_id)?;
-    
-    println!("✅ DID transfer prepared for device {}", target_device_id);
-    println!("📱 Device verification code: {}", device_verification_code);
-    println!("⚠️  Complete transfer by entering this code on the target device");
-    
-    Ok(device_verification_code)
-}
 
-/// Create seed phrase backup package with QR codes
-pub async fn create_seed_backup_package(
-    seed_phrase: &RecoveryPhrase,
-    did_document: &DidDocument,
-) -> Result<SeedPhraseBackup, anyhow::Error> {
-    let seed_text = seed_phrase.words.join(" ");
-    
-    // Create QR code data (in real implementation, would generate actual QR code)
-    let qr_data = format!("ZHTP_DID_RECOVERY:{}", base64::encode(seed_text.as_bytes()));
-    
-    // Encrypt seed phrase for backup (simple encryption for demo)
-    let encrypted_seed = encrypt_seed_for_backup(&seed_text, &did_document.id)?;
-    
-    let backup = SeedPhraseBackup {
-        did_id: did_document.id.clone(),
-        encrypted_seed_phrase: encrypted_seed,
-        qr_code_data: qr_data,
-        backup_timestamp: std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)?
-            .as_secs(),
-        recovery_instructions: generate_backup_recovery_instructions(),
-    };
-    
-    println!("📦 Created secure backup package for DID: {}", did_document.id);
-    
-    Ok(backup)
-}
 
-/// Generate cryptographic commitment to seed phrase for blockchain storage
-fn generate_seed_commitment(seed_phrase: &RecoveryPhrase) -> Result<String, anyhow::Error> {
-    use sha2::Digest;
-    
-    let seed_text = seed_phrase.words.join(" ");
-    let commitment_hash = sha2::Sha256::digest(format!("ZHTP_SEED_COMMITMENT:{}", seed_text).as_bytes());
-    
-    Ok(format!("zhtp:commitment:{}", hex::encode(commitment_hash)))
-}
 
-/// Generate device verification code for DID transfer
-fn generate_device_verification_code(identity_id: &str, device_id: &str) -> Result<String, anyhow::Error> {
-    use sha2::Digest;
-    
-    let combined = format!("{}:{}", identity_id, device_id);
-    let code_hash = sha2::Sha256::digest(combined.as_bytes());
-    let code = hex::encode(&code_hash[..6]); // Use first 6 bytes for 12-character code
-    
-    Ok(code.to_uppercase())
-}
 
-/// Encrypt seed phrase for secure backup storage
-fn encrypt_seed_for_backup(seed_text: &str, did_id: &str) -> Result<String, anyhow::Error> {
-    // Simple encryption for demo (real implementation would use proper encryption)
-    let key = format!("BACKUP_KEY_{}", did_id);
-    let mut encrypted = Vec::new();
-    
-    for (i, byte) in seed_text.bytes().enumerate() {
-        let key_byte = key.bytes().nth(i % key.len()).unwrap_or(0);
-        encrypted.push(byte ^ key_byte);
-    }
-    
-    Ok(base64::encode(&encrypted))
-}
 
-/// Generate recovery instructions for users
-fn generate_recovery_instructions(did_document: &DidDocument, has_seed_phrase: bool, recovery_manager: &RecoveryPhraseManager) -> String {
-    if has_seed_phrase {
-        let security_settings = recovery_manager.get_security_settings();
-        let additional_auth_note = if security_settings.require_additional_auth {
-            "\n• Additional authentication may be required for recovery"
-        } else {
-            ""
-        };
-        
-        format!(
-            "🔐 DID RECOVERY INSTRUCTIONS for {}\n\
-            \n\
-            Your DID is secured with a 20-word recovery seed phrase.\n\
-            \n\
-            TO RECOVER YOUR DID:\n\
-            1. Keep your 20 words safe and in order\n\
-            2. On any device, use: recover_did_from_seed_phrase()\n\
-            3. Enter your 20 words when prompted\n\
-            4. Your complete DID will be restored\n\
-            \n\
-            TO TRANSFER TO NEW DEVICE:\n\
-            1. Use: transfer_did_to_device(seed_words, device_id)\n\
-               • device_id examples: \"laptop-2024\", \"phone-main\", \"tablet-work\"\n\
-               • Not zkDID - this is your device nickname/identifier\n\
-            2. Enter verification code on target device\n\
-            3. DID will be active on new device\n\
-            \n\
-            ⚠️  SECURITY REMINDERS:\n\
-            • Never share your seed phrase\n\
-            • Store in multiple secure locations\n\
-            • Test recovery process periodically\n\
-            • Seed phrase = full DID control{additional_auth}",
-            did_document.id,
-            additional_auth = additional_auth_note
-        )
-    } else {
-        format!(
-            "DID {} created without seed phrase recovery.\n\
-            Recovery options may be limited to key-based methods.",
-            did_document.id
-        )
-    }
-}
 
-/// Generate backup recovery instructions
-fn generate_backup_recovery_instructions() -> String {
-    "SEED PHRASE BACKUP RECOVERY:\n\
-    1. Decrypt the encrypted_seed_phrase using your DID\n\
-    2. Use the 20 words with recover_did_from_seed_phrase()\n\
-    3. Alternatively, scan the QR code for quick recovery\n\
-    4. Verify recovered DID matches the did_id in this backup".to_string()
-}
 
-/// DID recovery options
-#[derive(Debug, Clone)]
-pub struct DIDRecoveryOptions {
-    pub base_url: Option<String>,
-    pub restore_services: bool,
-    pub verify_blockchain: bool,
-}
+
+
+
+
+
 
 /// Validate DID Document structure
 pub fn validate_did_document(document: &DidDocument) -> Result<bool, String> {

@@ -21,11 +21,11 @@ async fn main() -> Result<()> {
     // Create wallet manager with DID (required for DAO wallets)
     let mut manager = WalletManager::new(creator_did_1.clone());
     
-    println!("\n📋 Creating DAO Wallets (DID Required)...");
+    println!("\nCreating DAO Wallets (DID Required)...");
     
     // Try to create DAO wallets with a standalone manager (should fail)
     let mut standalone_manager = WalletManager::new_standalone();
-    println!("\n❌ Attempting to create DAO wallet without DID...");
+    println!("\nAttempting to create DAO wallet without DID...");
     
     let governance_settings = DaoGovernanceSettings {
         min_signatures_required: 1,
@@ -42,8 +42,8 @@ async fn main() -> Result<()> {
         governance_settings.clone(),
         TransparencyLevel::Full,
     ).await {
-        Ok(_) => println!("⚠️  This should not happen!"),
-        Err(e) => println!("✅ Correctly rejected: {}", e),
+        Ok(_) => println!(" This should not happen!"),
+        Err(e) => println!("Correctly rejected: {}", e),
     }
     
     // Create NonProfit DAO wallet (creator cannot own it)
@@ -57,7 +57,7 @@ async fn main() -> Result<()> {
         TransparencyLevel::Full,
     ).await?;
     
-    println!("✅ NonProfit DAO Created!");
+    println!("NonProfit DAO Created!");
     println!("   Wallet ID: {}", hex::encode(&nonprofit_dao.0));
     
     // Check ownership of nonprofit DAO
@@ -84,7 +84,7 @@ async fn main() -> Result<()> {
         TransparencyLevel::Partial,
     ).await?;
     
-    println!("✅ ForProfit DAO Created!");
+    println!("ForProfit DAO Created!");
     println!("   Wallet ID: {}", hex::encode(&forprofit_dao.0));
     
     // Check ownership of forprofit DAO
@@ -95,10 +95,10 @@ async fn main() -> Result<()> {
         "No Owner (WRONG for ForProfit)".to_string()
     });
     
-    println!("\n💰 Testing DAO Wallet Operations...");
+    println!("\nTesting DAO Wallet Operations...");
     
     // Add funds to nonprofit DAO with public logging
-    println!("\n📥 Adding funds to NonProfit DAO...");
+    println!("\nAdding funds to NonProfit DAO...");
     manager.add_funds_to_dao_wallet(
         &nonprofit_dao,
         25000, // 25K ZHTP
@@ -108,7 +108,7 @@ async fn main() -> Result<()> {
     )?;
     
     // Add funds to forprofit DAO
-    println!("📥 Adding funds to ForProfit DAO...");
+    println!("Adding funds to ForProfit DAO...");
     manager.add_funds_to_dao_wallet(
         &forprofit_dao,
         100000, // 100K ZHTP
@@ -128,7 +128,7 @@ async fn main() -> Result<()> {
     )?;
     
     // Try to spend large amount from forprofit DAO (should fail due to governance rules)
-    println!("\n❌ Attempting large spend from ForProfit DAO...");
+    println!("\nAttempting large spend from ForProfit DAO...");
     match manager.remove_funds_from_dao_wallet(
         &forprofit_dao,
         60000, // 60K ZHTP (exceeds 50K limit)
@@ -136,22 +136,22 @@ async fn main() -> Result<()> {
         "Large investment (should fail)".to_string(),
         creator_did_2.clone(),
     ) {
-        Ok(_) => println!("⚠️  This should not happen!"),
-        Err(e) => println!("✅ Correctly blocked: {}", e),
+        Ok(_) => println!(" This should not happen!"),
+        Err(e) => println!("Correctly blocked: {}", e),
     }
     
     // Add another controller to the forprofit DAO
-    println!("\n👥 Adding controller to ForProfit DAO...");
+    println!("\nAdding controller to ForProfit DAO...");
     manager.add_dao_controller(
         &forprofit_dao,
         contributor_did.clone(),
         creator_did_2.clone(),
     )?;
     
-    println!("✅ Added new controller to ForProfit DAO");
+    println!("Added new controller to ForProfit DAO");
     
     // Show public transaction history
-    println!("\n📊 PUBLIC TRANSACTION HISTORY");
+    println!("\nPUBLIC TRANSACTION HISTORY");
     println!("───────────────────────────────");
     
     println!("\n🏛️  NonProfit DAO Transactions (Full Transparency):");
@@ -183,7 +183,7 @@ async fn main() -> Result<()> {
     }
     
     // Show wallet summary with DAO information
-    println!("\n📋 WALLET SUMMARY");
+    println!("\nWALLET SUMMARY");
     println!("─────────────────");
     
     let wallets = manager.list_wallets();
@@ -201,7 +201,7 @@ async fn main() -> Result<()> {
     
     // Show DAO-specific statistics
     let dao_wallets = manager.get_dao_wallets();
-    println!("\n📊 DAO STATISTICS");
+    println!("\nDAO STATISTICS");
     println!("─────────────────");
     println!("Total DAO Wallets: {}", dao_wallets.len());
     println!("NonProfit DAOs: {}", manager.get_dao_wallets_by_type(true).len());
@@ -224,14 +224,14 @@ async fn main() -> Result<()> {
         }
     }
     
-    println!("\n✅ DAO Wallet Demo Completed!");
+    println!("\nDAO Wallet Demo Completed!");
     println!("Key Features Demonstrated:");
-    println!("  🔐 DID-required creation (cannot create 'out of thin air')");
+    println!("  DID-required creation (cannot create 'out of thin air')");
     println!("  🏛️  NonProfit DAOs have no owner (even creator cannot own)");
     println!("  💼 ForProfit DAOs can be owned by creator");
-    println!("  📊 Full public transaction transparency");
+    println!("  Full public transaction transparency");
     println!("  🛡️  Governance rules enforce spending limits");
-    println!("  👥 Multi-controller authorization system");
+    println!("  Multi-controller authorization system");
     
     Ok(())
 }

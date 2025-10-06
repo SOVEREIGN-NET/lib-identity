@@ -4,33 +4,36 @@ use anyhow::Result;
 use crate::wallets::{WalletManager, WalletType, WalletId, WalletSummary};
 
 impl WalletManager {
-    /// Create multiple wallets for a new citizen
-    pub fn create_citizen_wallets(&mut self) -> Result<CitizenWalletSet> {
-        // Create primary wallet
-        let primary_id = self.create_wallet(
+    /// Create multiple wallets for a new citizen with proper seed phrase recovery
+    pub async fn create_citizen_wallets_with_seed_phrases(&mut self) -> Result<CitizenWalletSetWithSeeds> {
+        // Create primary wallet with seed phrase
+        let (primary_id, primary_seed) = self.create_wallet_with_seed_phrase(
             WalletType::Primary,
             "Primary Wallet".to_string(),
             Some("primary".to_string()),
-        )?;
+        ).await?;
         
-        // Create UBI wallet
-        let ubi_id = self.create_wallet(
+        // Create UBI wallet with seed phrase
+        let (ubi_id, ubi_seed) = self.create_wallet_with_seed_phrase(
             WalletType::UBI,
             "UBI Wallet".to_string(),
             Some("ubi".to_string()),
-        )?;
+        ).await?;
         
-        // Create savings wallet
-        let savings_id = self.create_wallet(
+        // Create savings wallet with seed phrase
+        let (savings_id, savings_seed) = self.create_wallet_with_seed_phrase(
             WalletType::Savings,
             "Savings Wallet".to_string(),
             Some("savings".to_string()),
-        )?;
+        ).await?;
         
-        Ok(CitizenWalletSet {
+        Ok(CitizenWalletSetWithSeeds {
             primary_wallet_id: primary_id,
             ubi_wallet_id: ubi_id,
             savings_wallet_id: savings_id,
+            primary_seed_phrase: primary_seed,
+            ubi_seed_phrase: ubi_seed,
+            savings_seed_phrase: savings_seed,
         })
     }
     
@@ -101,7 +104,18 @@ impl WalletManager {
     }
 }
 
-/// Set of wallets created for a new citizen
+/// Set of wallets created for a new citizen with seed phrases for recovery
+#[derive(Debug, Clone)]
+pub struct CitizenWalletSetWithSeeds {
+    pub primary_wallet_id: WalletId,
+    pub ubi_wallet_id: WalletId,
+    pub savings_wallet_id: WalletId,
+    pub primary_seed_phrase: crate::recovery::RecoveryPhrase,
+    pub ubi_seed_phrase: crate::recovery::RecoveryPhrase,
+    pub savings_seed_phrase: crate::recovery::RecoveryPhrase,
+}
+
+/// Legacy struct - use CitizenWalletSetWithSeeds for new code
 #[derive(Debug, Clone)]
 pub struct CitizenWalletSet {
     pub primary_wallet_id: WalletId,

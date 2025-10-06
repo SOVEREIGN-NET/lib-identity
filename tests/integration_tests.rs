@@ -50,7 +50,7 @@ async fn test_complete_citizen_onboarding_flow() {
     // Verify welcome bonus
     assert_eq!(citizenship_result.welcome_bonus.bonus_amount, 5000);
     
-    println!("✅ Complete citizen onboarding test passed!");
+    println!("Complete citizen onboarding test passed!");
 }
 
 #[tokio::test]
@@ -120,7 +120,7 @@ async fn test_credential_management_lifecycle() {
     assert_eq!(stats.by_type.get(&CredentialType::Reputation), Some(&1));
     assert_eq!(stats.by_type.get(&CredentialType::Education), Some(&1));
     
-    println!("✅ Credential management lifecycle test passed!");
+    println!("Credential management lifecycle test passed!");
 }
 
 #[tokio::test]
@@ -172,7 +172,7 @@ async fn test_identity_verification_system() {
     let (cache_size, cache_ops, hit_rate) = verifier.get_cache_stats();
     assert!(cache_ops > 0);
     
-    println!("✅ Identity verification system test passed!");
+    println!("Identity verification system test passed!");
 }
 
 #[tokio::test]
@@ -231,7 +231,7 @@ async fn test_recovery_system() {
     assert!(validation_result.entropy_sufficient);
     assert!(validation_result.strength_score > 0.7);
     
-    println!("✅ Recovery system test passed!");
+    println!("Recovery system test passed!");
 }
 
 #[tokio::test]
@@ -284,7 +284,7 @@ async fn test_wallet_integration() {
     let ubi_wallets = wallet_manager.get_wallets_by_type(&WalletType::UBI);
     assert_eq!(ubi_wallets.len(), 1);
     
-    println!("✅ Wallet integration test passed!");
+    println!("Wallet integration test passed!");
 }
 
 #[tokio::test]
@@ -325,7 +325,7 @@ async fn test_activity_tracking() {
     assert!(stats.most_active_identity.is_some());
     assert_eq!(stats.most_active_identity.as_ref().unwrap(), &identity_id);
     
-    println!("✅ Activity tracking test passed!");
+    println!("Activity tracking test passed!");
 }
 
 #[tokio::test]
@@ -367,7 +367,7 @@ async fn test_citizenship_system_integration() {
         assert_eq!(result.welcome_bonus.bonus_amount, 5000);
     }
     
-    println!("✅ Citizenship system integration test passed!");
+    println!("Citizenship system integration test passed!");
 }
 
 // Helper functions for tests
@@ -437,7 +437,7 @@ async fn test_error_handling_and_edge_cases() {
     assert!(!validation_result.language_supported);
     assert!(!validation_result.errors.is_empty());
     
-    println!("✅ Error handling and edge cases test passed!");
+    println!("Error handling and edge cases test passed!");
 }
 
 #[tokio::test]
@@ -470,7 +470,7 @@ async fn test_performance_benchmarks() {
     }
     
     let credential_duration = credential_start.elapsed();
-    println!("📊 Created 10 credentials in {:?}", credential_duration);
+    println!("Created 10 credentials in {:?}", credential_duration);
     
     // Benchmark verification
     let mut verifier = verification::IdentityVerifier::new();
@@ -487,14 +487,14 @@ async fn test_performance_benchmarks() {
     }
     
     let verification_duration = verification_start.elapsed();
-    println!("📊 Performed 5 verifications in {:?}", verification_duration);
+    println!("Performed 5 verifications in {:?}", verification_duration);
     
     let total_duration = start_time.elapsed();
-    println!("📊 Total benchmark time: {:?}", total_duration);
+    println!("Total benchmark time: {:?}", total_duration);
     
     // Assert reasonable performance
     assert!(credential_duration.as_millis() < 1000, "Credential creation too slow");
     assert!(verification_duration.as_millis() < 500, "Verification too slow");
     
-    println!("✅ Performance benchmarks test passed!");
+    println!("Performance benchmarks test passed!");
 }

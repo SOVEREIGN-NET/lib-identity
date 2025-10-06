@@ -8,10 +8,10 @@ fn main() -> anyhow::Result<()> {
     
     match dao_hierarchy_demo::demonstrate_dao_hierarchy() {
         Ok(()) => {
-            println!("\n✅ Hierarchical DAO system demonstration completed successfully!");
+            println!("\nHierarchical DAO system demonstration completed successfully!");
         }
         Err(e) => {
-            eprintln!("\n❌ Demonstration failed: {}", e);
+            eprintln!("\nDemonstration failed: {}", e);
             return Err(e);
         }
     }

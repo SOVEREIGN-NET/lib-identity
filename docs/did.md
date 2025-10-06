@@ -76,7 +76,7 @@ let mut did_manager = DIDManager::new();
 
 // Generate 20-word mnemonic seed phrase for DID recovery
 let did_seed_phrase = generate_mnemonic(MnemonicWordCount::Twenty)?;
-println!("🔐 CRITICAL: Store this 20-word seed phrase securely!");
+println!("CRITICAL: Store this 20-word seed phrase securely!");
 println!("DID Recovery Seed: {}", did_seed_phrase.phrase);
 println!("This seed phrase can restore your entire DID and all associated keys");
 
@@ -121,10 +121,10 @@ let did_creation = did_manager.create_did(
 
 match did_creation.status {
     DIDCreationStatus::Success => {
-        println!("✅ DID created successfully");
+        println!("DID created successfully");
         println!("DID: {}", did_creation.did);
         println!("Seed Phrase: {}", did_creation.seed_phrase);
-        println!("⚠️  IMPORTANT: The seed phrase above allows FULL RECOVERY of this DID");
+        println!(" IMPORTANT: The seed phrase above allows FULL RECOVERY of this DID");
         println!("   - Write it down on paper and store securely");  
         println!("   - Never share or store digitally");
         println!("   - You can transfer this DID to any device with this seed");
@@ -237,7 +237,7 @@ let did_recovery_result = did_recovery.recover_from_seed_phrase(
 
 match did_recovery_result.status {
     RecoveryStatus::Success => {
-        println!("🎉 DID recovered successfully from seed phrase!");
+        println!(" DID recovered successfully from seed phrase!");
         println!("Recovered DID: {}", did_recovery_result.recovered_did);
         println!("All keys restored: {}", did_recovery_result.keys_recovered.len());
         
@@ -264,14 +264,14 @@ match did_recovery_result.status {
         println!("DID recovery confirmed and registered on new device");
     },
     RecoveryStatus::InvalidSeedPhrase => {
-        println!("❌ Invalid seed phrase - please check and try again");
+        println!("Invalid seed phrase - please check and try again");
     },
     RecoveryStatus::NetworkVerificationFailed => {
-        println!("⚠️ Seed phrase valid but network verification failed");
+        println!("Seed phrase valid but network verification failed");
         println!("DID may have been revoked or network unreachable");
     },
     RecoveryStatus::Failed => {
-        println!("❌ DID recovery failed: {}", did_recovery_result.error_message);
+        println!("DID recovery failed: {}", did_recovery_result.error_message);
     }
 }
 ```
@@ -322,7 +322,7 @@ let transfer_acceptance = did_transfer.accept_device_transfer(
 ).await?;
 
 if transfer_acceptance.transfer_successful {
-    println!("✅ DID successfully transferred to new device");
+    println!("DID successfully transferred to new device");
     println!("New device is now authorized for DID: {}", transfer_acceptance.transferred_did);
     
     // Original device can optionally be deauthorized
@@ -337,7 +337,7 @@ if transfer_acceptance.transfer_successful {
     
     println!("Source device deauthorization scheduled");
 } else {
-    println!("❌ DID transfer failed: {}", transfer_acceptance.error_message);
+    println!("DID transfer failed: {}", transfer_acceptance.error_message);
 }
 ```
 
@@ -991,9 +991,9 @@ async fn setup_complete_did_identity_system(
     // 1. Generate secure 20-word seed phrase for DID
     let did_seed_phrase = generate_mnemonic(MnemonicWordCount::Twenty)?;
     
-    println!("🔐 GENERATED DID RECOVERY SEED PHRASE:");
+    println!("GENERATED DID RECOVERY SEED PHRASE:");
     println!("   {}", did_seed_phrase.phrase);
-    println!("⚠️  CRITICAL: Store this seed phrase securely!");
+    println!(" CRITICAL: Store this seed phrase securely!");
     println!("   - Write it down on paper and store in multiple secure locations");
     println!("   - This phrase can recover your entire DID on any device");
     println!("   - Never share or store digitally");
@@ -1066,12 +1066,12 @@ async fn setup_complete_did_identity_system(
         setup_completed_at: current_timestamp(),
     };
     
-    println!("✅ Complete DID identity system configured with seed phrase recovery");
+    println!("Complete DID identity system configured with seed phrase recovery");
     println!("Primary DID: {}", did_identity_system.primary_did);
     println!("Backup DID: {}", did_identity_system.backup_did);
     println!("Service endpoints: {}", did_identity_system.service_endpoints.len());
-    println!("🔐 Seed phrase: {}", did_seed_phrase.phrase);
-    println!("⚠️  STORE YOUR SEED PHRASE SECURELY - Required for DID recovery!");
+    println!("Seed phrase: {}", did_seed_phrase.phrase);
+    println!(" STORE YOUR SEED PHRASE SECURELY - Required for DID recovery!");
     
     Ok(did_identity_system)
 }

@@ -6,13 +6,11 @@
 
 use crate::{
     wallets::{
-        wallet_types::{WalletType, DaoGovernanceSettings, DaoWalletProperties, QuantumWallet, TransparencyLevel},
         manager_integration::WalletManager,
     },
 };
 use lib_crypto::Hash;
 use anyhow::Result;
-use tracing;
 
 /// Demonstrates complete hierarchical DAO functionality
 pub fn demonstrate_dao_hierarchy() -> Result<()> {
@@ -29,9 +27,9 @@ pub fn demonstrate_dao_hierarchy() -> Result<()> {
     // Create wallet manager with a test identity
     let _wallet_manager = WalletManager::new(founder_id.clone());
     
-    println!("✅ Successfully created wallet manager");
-    println!("✅ DAO hierarchy system is ready for implementation");
-    println!("✅ Core infrastructure includes:");
+    println!("Successfully created wallet manager");
+    println!("DAO hierarchy system is ready for implementation");
+    println!("Core infrastructure includes:");
     println!("   - Pure post-quantum cryptography (Dilithium + Kyber)");
     println!("   - 8 wallet types including NonProfitDAO and ForProfitDAO");
     println!("   - DID-required DAO creation with public transparency");
@@ -204,7 +202,7 @@ mod tests {
             Ok(_) => panic!("Expected authorization to fail"),
         }
         
-        println!("✅ Business rule validation: Non-profit DAOs correctly prevented from owning/controlling for-profit DAOs");
+        println!("Business rule validation: Non-profit DAOs correctly prevented from owning/controlling for-profit DAOs");
         
         Ok(())
     }
@@ -330,7 +328,7 @@ mod tests {
         
         assert!(result.is_ok());
         
-        println!("✅ Business rule validation: For-profit DAOs can correctly own/control non-profit DAOs");
+        println!("Business rule validation: For-profit DAOs can correctly own/control non-profit DAOs");
         
         Ok(())
     }

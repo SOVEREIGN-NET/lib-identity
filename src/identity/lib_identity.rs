@@ -35,8 +35,6 @@ pub struct ZhtpIdentity {
     pub private_data_id: Option<IdentityId>,
     /// Integrated quantum wallet system
     pub wallet_manager: crate::wallets::WalletManager,
-    /// DID document hash for decentralized identity
-    pub did_document_hash: Option<Hash>,
     /// Identity attestations from trusted parties
     pub attestations: Vec<IdentityAttestation>,
     /// Creation timestamp
@@ -45,6 +43,8 @@ pub struct ZhtpIdentity {
     pub last_active: u64,
     /// Recovery options
     pub recovery_keys: Vec<Vec<u8>>,
+    /// DID document hash for blockchain integration
+    pub did_document_hash: Option<Hash>,
 }
 
 impl PartialEq for ZhtpIdentity {
@@ -80,24 +80,16 @@ impl ZhtpIdentity {
             metadata: HashMap::new(),
             private_data_id: Some(id.clone()),
             wallet_manager,
-            did_document_hash: None,
             attestations: Vec::new(),
             created_at: current_time,
             last_active: current_time,
             recovery_keys: Vec::new(),
+            did_document_hash: None,
         })
     }
     
-    /// Create a new quantum wallet for this identity
-    pub fn create_wallet(
-        &mut self,
-        wallet_type: crate::wallets::WalletType,
-        name: String,
-        alias: Option<String>,
-    ) -> Result<crate::wallets::WalletId> {
-        self.update_activity();
-        self.wallet_manager.create_wallet(wallet_type, name, alias)
-    }
+    // Note: Wallet creation now done directly through WalletManager for consistency
+    // Use identity.wallet_manager.create_wallet_with_seed_phrase() for proper seed phrase support
     
     /// Get wallet by alias
     pub fn get_wallet(&self, alias: &str) -> Option<&crate::wallets::QuantumWallet> {
@@ -184,33 +176,11 @@ impl ZhtpIdentity {
         }
     }
     
-    /// Generate a DID document for decentralized identity
-    pub fn generate_did_document(&mut self) -> Result<Hash> {
-        let did_doc = serde_json::json!({
-            "@context": "https://www.w3.org/ns/did/v1",
-            "id": format!("did:zhtp:{}", hex::encode(self.id.as_bytes())),
-            "verificationMethod": [{
-                "id": format!("did:zhtp:{}#key-1", hex::encode(self.id.as_bytes())),
-                "type": "PostQuantumSignature2024",
-                "controller": format!("did:zhtp:{}", hex::encode(self.id.as_bytes())),
-                "publicKeyBytes": hex::encode(&self.public_key)
-            }],
-            "authentication": [format!("did:zhtp:{}#key-1", hex::encode(self.id.as_bytes()))],
-            "service": [{
-                "id": format!("did:zhtp:{}#lib-wallet", hex::encode(self.id.as_bytes())),
-                "type": "ZhtpQuantumWallet",
-                "serviceEndpoint": format!("zhtp://wallet/{}", hex::encode(self.id.as_bytes()))
-            }],
-            "created": self.created_at,
-            "updated": self.last_active
-        });
-        
-        let did_bytes = did_doc.to_string().into_bytes();
-        let did_hash = Hash::from_bytes(&did_bytes);
-        self.did_document_hash = Some(did_hash.clone());
-        self.update_activity();
-        
-        Ok(did_hash)
+    /// Generate a W3C-compliant DID document for this identity
+    /// Delegates to the proper DID module for consistent formatting
+    pub fn generate_did_document(&self, base_url: Option<&str>) -> Result<crate::did::DidDocument> {
+        crate::did::generate_did_document(self, base_url)
+            .map_err(|e| anyhow!("Failed to generate DID document: {}", e))
     }
     
     /// Update last activity timestamp

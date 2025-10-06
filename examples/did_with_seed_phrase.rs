@@ -15,7 +15,7 @@ use anyhow::Result;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    println!("🔐 DID Seed Phrase Example - ZHTP Identity Management");
+    println!("DID Seed Phrase Example - ZHTP Identity Management");
     println!("════════════════════════════════════════════════════");
     
     // Step 1: Create a new identity
@@ -26,7 +26,7 @@ async fn main() -> Result<()> {
         Vec::new(), // No initial recovery options - we'll use seed phrase
     ).await?;
     
-    println!("✅ Identity created: {}", hex::encode(&identity_id.0[..8]));
+    println!("Identity created: {}", hex::encode(&identity_id.0[..8]));
     
     // Get the full identity object
     let identity = identity_manager.get_identity(&identity_id)
@@ -40,7 +40,7 @@ async fn main() -> Result<()> {
         Some("https://did.zhtp.network".to_string()),
     ).await?;
     
-    println!("✅ DID created: {}", did_result.did_document.id);
+    println!("DID created: {}", did_result.did_document.id);
     
     if let Some(seed_phrase) = &did_result.seed_phrase {
         println!("\n🔑 YOUR 20-WORD RECOVERY SEED PHRASE:");
@@ -59,17 +59,17 @@ async fn main() -> Result<()> {
         // Step 4: Demonstrate recovery (simulation)
         println!("\n4️⃣ Testing DID recovery from seed phrase...");
         let recovery_result = recover_did(seed_phrase.words.clone()).await?;
-        println!("✅ Recovery test: {}", recovery_result);
+        println!("Recovery test: {}", recovery_result);
         
         // Step 5: Demonstrate device transfer
         println!("\n5️⃣ Simulating DID transfer to new device...");
         let device_id = "mobile_device_12345";
         match transfer_did_to_device(&seed_phrase.words, device_id).await {
             Ok(verification_code) => {
-                println!("✅ Transfer initiated to device: {}", device_id);
-                println!("📱 Verification code: {}", verification_code);
+                println!("Transfer initiated to device: {}", device_id);
+                println!(" Verification code: {}", verification_code);
             }
-            Err(e) => println!("⚠️  Transfer simulation: {}", e),
+            Err(e) => println!(" Transfer simulation: {}", e),
         }
     }
     
@@ -81,7 +81,7 @@ async fn main() -> Result<()> {
     println!("   Created: {}", did_result.did_document.created);
     
     // Show service endpoints with seed commitment
-    println!("\n   🔗 Service Endpoints:");
+    println!("\n   Service Endpoints:");
     for service in &did_result.did_document.service {
         if service.service_type == "SeedPhraseCommitment" {
             println!("   • {} (Seed Recovery): {}", service.service_type, &service.service_endpoint[..50]);
@@ -90,7 +90,7 @@ async fn main() -> Result<()> {
         }
     }
     
-    println!("\n✅ DID with seed phrase example completed successfully!");
+    println!("\nDID with seed phrase example completed successfully!");
     println!("Your DID is now fully portable and recoverable using the 20-word seed phrase.");
     
     Ok(())
@@ -98,7 +98,7 @@ async fn main() -> Result<()> {
 
 /// Example of advanced DID creation with custom options
 pub async fn advanced_did_creation_example() -> Result<()> {
-    println!("\n🔧 Advanced DID Creation Example");
+    println!("\nAdvanced DID Creation Example");
     println!("──────────────────────────────────");
     
     // Create identity
@@ -126,7 +126,7 @@ pub async fn advanced_did_creation_example() -> Result<()> {
     
     let did_result = create_did_with_seed_phrase(request).await?;
     
-    println!("✅ Advanced DID created with 24-word seed phrase");
+    println!("Advanced DID created with 24-word seed phrase");
     println!("   DID: {}", did_result.did_document.id);
     
     if let Some(seed_phrase) = &did_result.seed_phrase {

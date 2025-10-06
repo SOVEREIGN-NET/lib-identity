@@ -56,59 +56,8 @@ impl WalletManager {
         }
     }
     
-    /// Create a new wallet
-    pub fn create_wallet(
-        &mut self,
-        wallet_type: WalletType,
-        name: String,
-        alias: Option<String>,
-    ) -> Result<WalletId> {
-        // Check if alias already exists
-        if let Some(ref alias) = alias {
-            if self.alias_map.contains_key(alias) {
-                return Err(anyhow!("Wallet alias '{}' already exists", alias));
-            }
-        }
-        
-        // Generate quantum-resistant public key (simplified for now)
-        let mut public_key = vec![0u8; 32];
-        use rand::RngCore;
-        rand::thread_rng().fill_bytes(&mut public_key);
-        
-        // Create the wallet
-        let wallet = QuantumWallet::new(
-            wallet_type,
-            name,
-            alias.clone(),
-            self.owner_id.clone(),
-            public_key,
-        );
-        
-        let wallet_id = wallet.id.clone();
-        
-        // Store wallet
-        self.wallets.insert(wallet_id.clone(), wallet);
-        
-        // Store alias mapping if provided
-        if let Some(alias) = alias {
-            self.alias_map.insert(alias, wallet_id.clone());
-        }
-        
-        if let Some(ref owner_id) = self.owner_id {
-            tracing::info!(
-                "Created wallet {} for identity {}",
-                hex::encode(&wallet_id.0[..8]),
-                hex::encode(&owner_id.0[..8])
-            );
-        } else {
-            tracing::info!(
-                "Created standalone wallet {}",
-                hex::encode(&wallet_id.0[..8])
-            );
-        }
-        
-        Ok(wallet_id)
-    }
+    // Note: Basic wallet creation removed - use create_wallet_with_seed_phrase() for all wallets
+    // This ensures consistent seed phrase support across all wallet types
     
     /// Create a new wallet with 20-word seed phrase
     pub async fn create_wallet_with_seed_phrase(
@@ -131,8 +80,8 @@ impl WalletManager {
         
         // Create the wallet with seed phrase
         let wallet = QuantumWallet::new_with_seed_phrase(
-            wallet_type,
-            name,
+            wallet_type.clone(),
+            name.clone(),
             alias.clone(),
             self.owner_id.clone(),
             public_key,
@@ -149,11 +98,11 @@ impl WalletManager {
             self.alias_map.insert(alias, wallet_id.clone());
         }
         
-        println!("🔐 WALLET 20-WORD SEED PHRASE:");
+        println!("WALLET 20-WORD SEED PHRASE:");
         println!("┌─────────────────────────────────────────────────────────────┐");
         println!("│ {}   │", seed_phrase.words.join(" "));
         println!("└─────────────────────────────────────────────────────────────┘");
-        println!("⚠️  CRITICAL SECURITY NOTICE:");
+        println!(" CRITICAL SECURITY NOTICE:");
         println!("   • Write down these 20 words in the exact order shown");
         println!("   • Store in multiple secure, offline locations");
         println!("   • This phrase can recover your entire wallet on any device");
@@ -172,6 +121,17 @@ impl WalletManager {
                 hex::encode(&wallet_id.0[..8])
             );
         }
+
+        // Emit wallet creation event for blockchain registration
+        // The higher-level orchestrator (ZHTP server) will handle blockchain recording
+        let owner_display = self.owner_id.as_ref().map(|id| hex::encode(&id.0[..8]));
+        tracing::info!(
+            " WALLET_CREATED_EVENT: wallet_id={}, type={:?}, name={}, owner_id={:?}",
+            hex::encode(&wallet_id.0[..8]),
+            wallet_type,
+            name,
+            owner_display
+        );
         
         Ok((wallet_id, seed_phrase))
     }
@@ -231,7 +191,7 @@ impl WalletManager {
             self.alias_map.insert(alias, wallet_id.clone());
         }
         
-        println!("✅ Wallet recovered successfully from seed phrase");
+        println!("Wallet recovered successfully from seed phrase");
         println!("   Wallet ID: {}", hex::encode(&wallet_id.0[..8]));
         
         Ok(wallet_id)

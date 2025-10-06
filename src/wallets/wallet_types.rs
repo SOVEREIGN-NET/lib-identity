@@ -3,7 +3,6 @@
 use serde::{Deserialize, Serialize};
 use lib_crypto::Hash;
 use crate::types::IdentityId;
-use rand::RngCore;
 use anyhow::Result;
 
 /// Wallet identifier

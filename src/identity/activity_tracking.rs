@@ -41,8 +41,6 @@ pub enum ActivityType {
     WalletCreated,
     /// Transaction signing
     TransactionSigned,
-    /// DID document generation
-    DidDocumentGenerated,
     /// Recovery operation
     RecoveryPerformed,
     /// Verification request

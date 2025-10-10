@@ -107,7 +107,7 @@ async fn main() -> Result<()> {
     println!("   🛡️  Each wallet has its own 20-word seed phrase");
     println!("   Write down seed phrases on paper, store offline");
     println!("    Each wallet can be recovered independently");
-    println!("   🚫 Never share seed phrases digitally or online");
+    println!("    Never share seed phrases digitally or online");
     println!("   💾 Consider multiple backup copies in secure locations");
     println!("   Test recovery process before storing large amounts");
     println!();

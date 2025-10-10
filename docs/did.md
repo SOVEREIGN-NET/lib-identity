@@ -375,7 +375,7 @@ println!("- Checksum valid: {}", security_assessment.checksum_valid);
 println!("- Security rating: {:?}", security_assessment.security_rating);
 
 // Provide security recommendations
-println!("🔒 Seed Phrase Security Recommendations:");
+println!(" Seed Phrase Security Recommendations:");
 println!("1. Write seed phrase on paper - never store digitally");
 println!("2. Store in multiple secure locations (safe deposit box, fireproof safe)");
 println!("3. Never photograph or screenshot the seed phrase");

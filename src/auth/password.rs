@@ -133,7 +133,7 @@ impl PasswordManager {
         self.password_hashes.insert(identity_id.clone(), password_hash);
 
         tracing::info!(
-            "🔒 Password set for identity {}",
+            " Password set for identity {}",
             hex::encode(&identity_id.0[..8])
         );
 
@@ -179,7 +179,7 @@ impl PasswordManager {
             );
         } else {
             tracing::warn!(
-                "❌ Password validation failed for identity {}",
+                " Password validation failed for identity {}",
                 hex::encode(&identity_id.0[..8])
             );
         }

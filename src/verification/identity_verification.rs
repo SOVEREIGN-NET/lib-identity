@@ -314,7 +314,7 @@ impl IdentityVerifier {
             "public_key": identity.public_key
         });
 
-        // In real implementation, this would request signature from identity holder
+        // In implementation, this would request signature from identity holder
         // For now, simulate successful signature verification
         let signature_valid = true; // Would verify actual signature here
 
@@ -341,7 +341,7 @@ impl IdentityVerifier {
         // Generate identity proof using ZK package
         let proof = self.integration.generate_identity_proof(identity, &challenge_data).await?;
         
-        // Verify the proof (in real implementation, would use actual ZK verification)
+        // Verify the proof (in implementation, would use actual ZK verification)
         let proof_valid = !proof.is_empty();
         
         Ok(ZkVerificationResult {
@@ -357,7 +357,7 @@ impl IdentityVerifier {
         // Check UBI eligibility as citizenship indicator
         let ubi_eligible = self.integration.verify_ubi_eligibility(&hex::encode(&identity.id.0)).await?;
         
-        // In real implementation, would check against citizenship registry
+        // In implementation, would check against citizenship registry
         let citizenship_registry_confirmed = ubi_eligible;
         let citizenship_level = if ubi_eligible { "full_citizen".to_string() } else { "non_citizen".to_string() };
 
@@ -382,7 +382,7 @@ impl IdentityVerifier {
             
             if current_time >= anchor.valid_from && current_time <= anchor.valid_until {
                 // Simulate trust anchor verification
-                // In real implementation, would verify against anchor's signature
+                // In implementation, would verify against anchor's signature
                 let anchor_verifies = true; // Would perform actual verification
                 
                 if anchor_verifies {
@@ -403,7 +403,7 @@ impl IdentityVerifier {
 
     /// Verify network reputation
     async fn verify_network_reputation(&mut self, _identity: &ZhtpIdentity) -> Result<ReputationVerificationResult, Box<dyn std::error::Error>> {
-        // In real implementation, would query network package for reputation data
+        // In implementation, would query network package for reputation data
         let reputation_score = 0.75; // Simulated reputation score
         let peer_confirmations = 12; // Number of peers that confirm identity
         let negative_reports = 0; // Number of negative reputation reports
@@ -458,7 +458,7 @@ impl IdentityVerifier {
             TrustAnchor {
                 id: "lib_foundation".to_string(),
                 name: "ZHTP Foundation".to_string(),
-                public_key: vec![0; 32], // Would be real public key
+                public_key: vec![0; 32], // Would be public key
                 verification_methods: vec!["quantum_signature".to_string(), "multi_sig".to_string()],
                 trust_level: TrustLevel::Maximum,
                 valid_from: 0,

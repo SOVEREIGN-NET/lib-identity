@@ -206,7 +206,7 @@ let reputation_params = ReputationProofParams {
 
 ### Integration with lib-proofs
 
-All credentials use real zero-knowledge proofs from lib-proofs:
+All credentials use zero-knowledge proofs from lib-proofs:
 
 ```rust
 use lib_proofs::ZeroKnowledgeProof;

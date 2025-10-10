@@ -427,7 +427,7 @@ impl RecoveryPhraseManager {
                     Ok(entropy)
                 },
                 EntropySource::HardwareRandom => {
-                    // In real implementation, would use hardware RNG
+                    // In implementation, would use hardware RNG
                     // For now, fall back to system random
                     use rand::RngCore;
                     let mut rng = rand::thread_rng();
@@ -499,7 +499,7 @@ impl RecoveryPhraseManager {
 
     /// Load wordlist for specified language
     fn load_wordlist(&self, language: &str) -> Result<Vec<String>> {
-        // In real implementation, would load actual BIP39 wordlists
+        // In implementation, would load actual BIP39 wordlists
         // For now, return a simplified wordlist
         match language {
             "english" => Ok(self.get_english_wordlist()),
@@ -823,7 +823,7 @@ impl RecoveryPhraseManager {
     }
 
     async fn derive_encryption_key(&self, identity_id: &str, additional_auth: Option<&str>, salt: &[u8]) -> Result<Vec<u8>> {
-        // Simple key derivation (in real implementation, use proper KDF)
+        // Simple key derivation (in implementation, use proper KDF)
         let mut key_material = identity_id.as_bytes().to_vec();
         if let Some(auth) = additional_auth {
             key_material.extend_from_slice(auth.as_bytes());
@@ -836,7 +836,7 @@ impl RecoveryPhraseManager {
     }
 
     async fn encrypt_phrase(&self, phrase: &str, key: &[u8]) -> Result<(Vec<u8>, Vec<u8>)> {
-        // Simple encryption (in real implementation, use proper AES encryption)
+        // Simple encryption (in implementation, use proper AES encryption)
         let mut iv = vec![0u8; 16];
         use rand::RngCore;
         rand::thread_rng().fill_bytes(&mut iv);

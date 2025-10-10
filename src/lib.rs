@@ -100,7 +100,7 @@ pub async fn create_standalone_wallet(
 pub async fn demonstrate_hierarchical_dao_system() -> Result<String> {
     use crate::wallets::dao_hierarchy_demo;
     
-    tracing::info!("🏛️ Starting hierarchical DAO system demonstration");
+    tracing::info!(" Starting hierarchical DAO system demonstration");
     
     dao_hierarchy_demo::demonstrate_dao_hierarchy()?;
     

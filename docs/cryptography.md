@@ -4,13 +4,13 @@ Post-quantum cryptographic operations and key management for ZHTP identity syste
 
 ## Overview
 
-The cryptography module provides quantum-resistant cryptographic operations, leveraging real implementations from lib-crypto. All operations use NIST-standardized post-quantum algorithms for long-term security.
+The cryptography module provides quantum-resistant cryptographic operations, leveraging implementations from lib-crypto. All operations use NIST-standardized post-quantum algorithms for long-term security.
 
 ## Integration with lib-crypto
 
 This module integrates with lib-crypto to provide:
-- **Real CRYSTALS-Dilithium** signatures (not stubs)
-- **Real CRYSTALS-Kyber** key encapsulation
+- **CRYSTALS-Dilithium** signatures (not stubs)
+- **CRYSTALS-Kyber** key encapsulation
 - **Quantum-resistant key generation**
 - **Secure memory management**
 
@@ -58,7 +58,7 @@ let keypair = generate_pq_keypair(Some(params))?;
 ```rust
 use lib_identity::cryptography::validate_keypair;
 
-// Validate keypair using real cryptographic operations
+// Validate keypair using cryptographic operations
 let is_valid = validate_keypair(&keypair)?;
 
 if is_valid {
@@ -107,7 +107,7 @@ let signature = sign_with_identity(&keypair, message, Some(params))?;
 ```rust
 use lib_identity::cryptography::verify_signature;
 
-// Verify signature using real lib-crypto operations
+// Verify signature using lib-crypto operations
 let is_valid = verify_signature(
     &keypair.public_key,
     message,
@@ -214,14 +214,14 @@ use lib_identity::cryptography::validate_keypair;
 let validation_result = validate_keypair(&keypair)?;
 ```
 
-## Real Cryptography Integration
+## Cryptography Integration
 
 ### lib-crypto Integration
 
-All operations use real lib-crypto implementations:
+All operations use lib-crypto implementations:
 
 ```rust
-// This uses REAL CRYSTALS-Dilithium from lib-crypto
+// This uses CRYSTALS-Dilithium from lib-crypto
 use lib_crypto::post_quantum::{dilithium2_sign, dilithium2_verify};
 
 let signature = dilithium2_sign(message, &keypair.private_key)?;
@@ -231,7 +231,7 @@ let is_valid = dilithium2_verify(message, &signature, &keypair.public_key)?;
 ### No More Stubs
 
 Previous stub implementations replaced with:
-- Real NIST-standardized algorithms
+- NIST-standardized algorithms
 - Production-ready cryptographic libraries
 - Proper security guarantees
 - Full test coverage

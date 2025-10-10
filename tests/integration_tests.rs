@@ -11,7 +11,7 @@ use std::collections::HashMap;
 
 #[tokio::test]
 async fn test_complete_citizen_onboarding_flow() {
-    println!("🧪 Testing complete citizen onboarding flow...");
+    println!(" Testing complete citizen onboarding flow...");
     
     // Initialize identity system
     let mut manager = initialize_identity_system().await.expect("Failed to initialize identity system");
@@ -55,7 +55,7 @@ async fn test_complete_citizen_onboarding_flow() {
 
 #[tokio::test]
 async fn test_credential_management_lifecycle() {
-    println!("🧪 Testing credential management lifecycle...");
+    println!(" Testing credential management lifecycle...");
     
     // Create credential factory
     let factory_id = Hash([1u8; 32]);
@@ -125,7 +125,7 @@ async fn test_credential_management_lifecycle() {
 
 #[tokio::test]
 async fn test_identity_verification_system() {
-    println!("🧪 Testing identity verification system...");
+    println!(" Testing identity verification system...");
     
     use verification::*;
     
@@ -177,7 +177,7 @@ async fn test_identity_verification_system() {
 
 #[tokio::test]
 async fn test_recovery_system() {
-    println!("🧪 Testing recovery system...");
+    println!(" Testing recovery system...");
     
     use recovery::*;
     
@@ -236,7 +236,7 @@ async fn test_recovery_system() {
 
 #[tokio::test]
 async fn test_wallet_integration() {
-    println!("🧪 Testing wallet integration...");
+    println!(" Testing wallet integration...");
     
     use wallets::*;
     
@@ -289,7 +289,7 @@ async fn test_wallet_integration() {
 
 #[tokio::test]
 async fn test_activity_tracking() {
-    println!("🧪 Testing activity tracking...");
+    println!(" Testing activity tracking...");
     
     // Create activity tracker
     let mut tracker = ActivityTracker::new();
@@ -330,7 +330,7 @@ async fn test_activity_tracking() {
 
 #[tokio::test]
 async fn test_citizenship_system_integration() {
-    println!("🧪 Testing citizenship system integration...");
+    println!(" Testing citizenship system integration...");
     
     // Test the complete citizenship flow
     let mut manager = initialize_identity_system().await.unwrap();
@@ -398,7 +398,7 @@ fn create_mock_economic_model() -> economics::EconomicModel {
 
 #[tokio::test]
 async fn test_error_handling_and_edge_cases() {
-    println!("🧪 Testing error handling and edge cases...");
+    println!(" Testing error handling and edge cases...");
     
     // Test invalid credential creation
     let factory_id = Hash([1u8; 32]);
@@ -442,7 +442,7 @@ async fn test_error_handling_and_edge_cases() {
 
 #[tokio::test]
 async fn test_performance_benchmarks() {
-    println!("🧪 Testing performance benchmarks...");
+    println!(" Testing performance benchmarks...");
     
     let start_time = std::time::Instant::now();
     

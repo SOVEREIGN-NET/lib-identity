@@ -55,7 +55,7 @@ impl UbiRegistration {
         }
     }
     
-    /// Register identity for Universal Basic Income payouts - REAL IMPLEMENTATION FROM ORIGINAL
+    /// Register identity for Universal Basic Income payouts - IMPLEMENTATION FROM ORIGINAL
     pub async fn register_for_ubi_payouts(
         identity_id: &IdentityId,
         ubi_wallet_id: &WalletId,

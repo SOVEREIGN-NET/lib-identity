@@ -46,7 +46,7 @@ impl DaoRegistration {
         }
     }
     
-    /// Register identity for DAO governance participation - REAL IMPLEMENTATION FROM ORIGINAL
+    /// Register identity for DAO governance participation - IMPLEMENTATION FROM ORIGINAL
     pub async fn register_for_dao_governance(
         identity_id: &IdentityId,
         economic_model: &mut EconomicModel,
@@ -75,7 +75,7 @@ impl DaoRegistration {
         );
 
         tracing::info!(
-            "🏛️ DAO REGISTERED: Citizen {} granted voting rights with {} voting power",
+            " DAO REGISTERED: Citizen {} granted voting rights with {} voting power",
             hex::encode(&identity_id.0[..8]),
             voting_power
         );

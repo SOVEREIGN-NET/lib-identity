@@ -284,7 +284,7 @@ impl ProofGenerator {
         identity: &ZhtpIdentity,
         request: &ProofGenerationRequest,
     ) -> Result<(Vec<u8>, Vec<u8>, PrivacyLevel), Box<dyn std::error::Error>> {
-        // In real implementation, would use actual ZK circuit for citizenship proof
+        // In implementation, would use actual ZK circuit for citizenship proof
         let mut proof_data = Vec::new();
         
         // Include nationality if required and available
@@ -325,7 +325,7 @@ impl ProofGenerator {
                 .and_then(|year| year.parse::<u32>().ok())
                 .unwrap_or(1990);
                 
-            let current_year = 2024; // In real implementation, use actual current year
+            let current_year = 2024; // In implementation, use actual current year
             let age = current_year - birth_year;
             
             // Create range proof for age > 18 (simplified)
@@ -424,7 +424,7 @@ impl ProofGenerator {
 
     /// Generate ZK proof (simplified implementation)
     async fn generate_zk_proof(&self, data: &[u8], challenge: Option<&Vec<u8>>) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
-        // In real implementation, would use actual ZK proof system
+        // In implementation, would use actual ZK proof system
         use sha2::{Sha256, Digest};
         
         let mut hasher = Sha256::new();

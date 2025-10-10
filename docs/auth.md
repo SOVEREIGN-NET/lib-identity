@@ -505,7 +505,7 @@ impl WebAuthService {
             .await
             .map_err(|e| format!("Identity not found: {:?}", e))?;
         
-        // Get identity seed (would be derived from 20-word phrase in real app)
+        // Get identity seed (would be derived from 20-word phrase in app)
         let identity_seed = self.identity_manager
             .get_identity_seed(&identity.id)
             .await

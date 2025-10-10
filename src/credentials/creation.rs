@@ -80,7 +80,7 @@ impl CredentialFactory {
         self.trusted_issuers.insert(issuer_id, credential_types);
     }
 
-    /// Create a zero-knowledge credential - REAL IMPLEMENTATION FROM ORIGINAL
+    /// Create a zero-knowledge credential - IMPLEMENTATION FROM ORIGINAL
     pub async fn create_zk_credential(
         &mut self,
         subject_id: IdentityId,
@@ -198,7 +198,7 @@ impl CredentialFactory {
         ).await
     }
 
-    /// Generate credential proof - REAL ZK IMPLEMENTATION FROM ORIGINAL
+    /// Generate credential proof - ZK IMPLEMENTATION FROM ORIGINAL
     async fn generate_credential_proof(
         &self,
         subject_id: &IdentityId,

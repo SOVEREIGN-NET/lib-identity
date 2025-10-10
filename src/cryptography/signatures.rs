@@ -1,6 +1,6 @@
 // packages/lib-identity/src/cryptography/signatures.rs
 // Post-quantum signature generation and verification
-// REAL IMPLEMENTATIONS using lib-crypto
+// IMPLEMENTATIONS using lib-crypto
 
 use crate::cryptography::PostQuantumKeypair;
 use serde::{Deserialize, Serialize};
@@ -49,7 +49,7 @@ pub fn sign_with_identity(
     
     signing_input.extend_from_slice(message);
     
-    // Generate signature using real lib-crypto implementations
+    // Generate signature using lib-crypto implementations
     let signature = match keypair.security_level {
         2 => dilithium2_sign(&signing_input, &keypair.private_key)
             .map_err(|e| format!("Dilithium2 signing failed: {}", e))?,
@@ -96,7 +96,7 @@ pub fn verify_signature(
     
     signing_input.extend_from_slice(message);
     
-    // Verify signature using real lib-crypto implementations
+    // Verify signature using lib-crypto implementations
     match signature.security_level {
         2 => dilithium2_verify(&signing_input, &signature.signature, public_key)
             .map_err(|e| format!("Dilithium2 verification failed: {}", e)),
@@ -106,7 +106,7 @@ pub fn verify_signature(
     }
 }
 
-// Removed fake Dilithium implementations - now using real lib-crypto functions
+// Removed fake Dilithium implementations - now using lib-crypto functions
 
 /// Batch verify multiple signatures efficiently
 pub fn batch_verify_signatures(

@@ -1,6 +1,6 @@
 // packages/lib-identity/src/cryptography/key_generation.rs
 // Quantum-resistant key generation using CRYSTALS-Dilithium
-// REAL IMPLEMENTATIONS using lib-crypto
+// IMPLEMENTATIONS using lib-crypto
 
 use serde::{Deserialize, Serialize};
 use lib_crypto::KeyPair as CryptoKeyPair;
@@ -26,12 +26,12 @@ pub struct KeyGenParams {
     pub key_derivation: Option<String>,
 }
 
-/// Generate post-quantum keypair using real CRYSTALS-Dilithium from lib-crypto
+/// Generate post-quantum keypair using CRYSTALS-Dilithium from lib-crypto
 /// Replaces stub implementation with actual cryptographic algorithms
 pub fn generate_pq_keypair(params: Option<KeyGenParams>) -> Result<PostQuantumKeypair, String> {
     let params = params.unwrap_or_default();
     
-    // Use real lib-crypto KeyPair generation for full post-quantum security
+    // Use lib-crypto KeyPair generation for full post-quantum security
     let crypto_keypair = CryptoKeyPair::generate()
         .map_err(|e| format!("Failed to generate crypto keypair: {}", e))?;
     
@@ -100,7 +100,7 @@ pub fn derive_child_key(
     generate_pq_keypair(Some(params))
 }
 
-/// Validate post-quantum keypair using real lib-crypto operations
+/// Validate post-quantum keypair using lib-crypto operations
 pub fn validate_keypair(keypair: &PostQuantumKeypair) -> Result<bool, String> {
     use lib_crypto::post_quantum::{dilithium2_sign, dilithium2_verify, dilithium5_sign, dilithium5_verify};
     
@@ -109,17 +109,17 @@ pub fn validate_keypair(keypair: &PostQuantumKeypair) -> Result<bool, String> {
         return Err("Empty keys detected".to_string());
     }
     
-    // Test signature to validate keypair consistency using real cryptography
+    // Test signature to validate keypair consistency using cryptography
     let test_message = b"ZHTP-Identity-KeyPair-Validation-Test";
     
     let signature_result = match keypair.security_level {
         2 => {
-            // Use real Dilithium2 operations
+            // Use Dilithium2 operations
             dilithium2_sign(test_message, &keypair.private_key)
                 .map_err(|e| format!("Dilithium2 signing failed: {}", e))
         },
         5 => {
-            // Use real Dilithium5 operations
+            // Use Dilithium5 operations
             dilithium5_sign(test_message, &keypair.private_key)
                 .map_err(|e| format!("Dilithium5 signing failed: {}", e))
         },

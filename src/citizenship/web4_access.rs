@@ -42,7 +42,7 @@ impl Web4Access {
         }
     }
     
-    /// Grant access to all Web4 services - REAL IMPLEMENTATION FROM ORIGINAL
+    /// Grant access to all Web4 services - IMPLEMENTATION FROM ORIGINAL
     pub async fn grant_web4_access(identity_id: &IdentityId) -> Result<Self> {
         let current_time = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)?

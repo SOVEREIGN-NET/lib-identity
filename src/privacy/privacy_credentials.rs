@@ -1,6 +1,6 @@
 // packages/lib-identity/src/privacy/privacy_credentials.rs
 // Privacy-preserving credential setup and management
-// REAL IMPLEMENTATIONS from original identity.rs
+// IMPLEMENTATIONS from original identity.rs
 
 use crate::identity::ZhtpIdentity;
 use serde::{Deserialize, Serialize};

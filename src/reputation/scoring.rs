@@ -1,6 +1,6 @@
 // packages/lib-identity/src/reputation/scoring.rs
 // Reputation scoring system for ZHTP identities
-// REAL IMPLEMENTATIONS from original identity.rs
+// IMPLEMENTATIONS from original identity.rs
 
 use crate::types::AccessLevel;
 use crate::identity::ZhtpIdentity;
@@ -146,7 +146,7 @@ fn calculate_activity_bonus(activity: &NetworkActivity) -> u32 {
 
 /// Calculate bonus for verifying other identities
 fn calculate_verification_bonus(identity: &ZhtpIdentity) -> u32 {
-    // In real implementation, this would check verification history
+    // In implementation, this would check verification history
     // For now, base on reputation score itself
     if identity.reputation > 500 {
         20 // Trusted verifiers get bonus

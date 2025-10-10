@@ -1,4 +1,4 @@
-//! Complete citizenship system - Revolutionary feature from the original identity.rs
+//! Complete citizenship system - feature from the original identity.rs
 
 pub mod onboarding;
 pub mod dao_registration;

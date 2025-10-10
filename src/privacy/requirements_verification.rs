@@ -1,6 +1,6 @@
 // packages/lib-identity/src/privacy/requirements_verification.rs
 // Privacy-preserving requirements verification
-// REAL IMPLEMENTATIONS from original identity.rs
+// IMPLEMENTATIONS from original identity.rs
 
 use crate::types::IdentityProofParams;
 use crate::identity::ZhtpIdentity;

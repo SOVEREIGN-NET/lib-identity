@@ -475,7 +475,7 @@ let achievements = recognition_system.evaluate_achievements(
 ).await?;
 
 for achievement in achievements {
-    println!("🏆 Achievement unlocked: {}", achievement.title);
+    println!(" Achievement unlocked: {}", achievement.title);
     println!("Description: {}", achievement.description);
     println!("Reputation bonus: +{:.1}", achievement.reputation_bonus);
     

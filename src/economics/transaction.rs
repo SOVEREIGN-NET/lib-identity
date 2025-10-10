@@ -62,7 +62,7 @@ pub struct Transaction {
 }
 
 impl Transaction {
-    /// Create a new transaction - REAL IMPLEMENTATION FROM ORIGINAL
+    /// Create a new transaction - IMPLEMENTATION FROM ORIGINAL
     pub fn new(
         from: [u8; 32],
         to: [u8; 32],

@@ -65,7 +65,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         // Step 3: Explain the concepts
         println!("3️⃣ Key Concepts:");
         println!("═══════════════");
-        println!("🔑 zkDID (Zero-Knowledge DID): {}", result.did_document.id);
+        println!(" zkDID (Zero-Knowledge DID): {}", result.did_document.id);
         println!("   • This is your actual decentralized identifier");
         println!("   • Used for cryptographic operations and verification");
         println!("   • Format: did:zhtp:[hash]");

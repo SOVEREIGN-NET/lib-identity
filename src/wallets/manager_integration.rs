@@ -150,8 +150,8 @@ impl WalletManager {
         // Reconstruct seed phrase
         let seed_phrase = crate::recovery::RecoveryPhrase {
             words: seed_words.to_vec(),
-            entropy: vec![], // Would be reconstructed in real implementation
-            checksum: String::new(), // Would be validated in real implementation
+            entropy: vec![], // Would be reconstructed in implementation
+            checksum: String::new(), // Would be validated in implementation
             language: "english".to_string(),
             word_count: 20,
         };

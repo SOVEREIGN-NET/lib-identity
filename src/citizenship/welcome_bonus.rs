@@ -43,7 +43,7 @@ impl WelcomeBonus {
         }
     }
     
-    /// Provide welcome bonus to new citizens - REAL IMPLEMENTATION FROM ORIGINAL
+    /// Provide welcome bonus to new citizens - IMPLEMENTATION FROM ORIGINAL
     pub async fn provide_welcome_bonus(
         identity_id: &IdentityId,
         wallet_id: &WalletId,

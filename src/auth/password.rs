@@ -73,7 +73,7 @@ impl PasswordManager {
         self.imported_identities.insert(identity_id.clone(), timestamp);
         
         tracing::info!(
-            "🔑 Identity {} marked as imported - can now set password",
+            " Identity {} marked as imported - can now set password",
             hex::encode(&identity_id.0[..8])
         );
     }

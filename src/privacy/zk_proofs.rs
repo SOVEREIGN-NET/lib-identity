@@ -1,6 +1,6 @@
 // packages/lib-identity/src/privacy/zk_proofs.rs
 // Zero-knowledge proof generation for identity privacy
-// REAL IMPLEMENTATIONS using lib-proofs
+// IMPLEMENTATIONS using lib-proofs
 
 use crate::types::IdentityProofParams;
 use crate::identity::ZhtpIdentity;
@@ -34,7 +34,7 @@ pub fn generate_identity_proof(
     identity: &ZhtpIdentity,
     requirements: &IdentityProofParams,
 ) -> Result<IdentityProof, String> {
-    // Real ZK proof generation logic from original
+    // ZK proof generation logic from original
     let timestamp = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap()
@@ -143,7 +143,7 @@ pub fn verify_ownership_proof(
 // Helper functions for proof generation
 
 fn generate_age_proof(identity: &ZhtpIdentity, threshold: u32) -> Result<Vec<u8>, String> {
-    // Real age verification ZK proof
+    // age verification ZK proof
     // Uses Plonky2 to prove age > threshold without revealing exact age
     let birth_year = identity.age.unwrap_or(25) as u32; // Default for testing
     let current_year = 2024;
@@ -227,8 +227,8 @@ fn verify_age_proof(proof_data: &[u8], _public_inputs: &[u8]) -> Result<bool, St
         "Age-Verification".to_string(),
         proof_data.to_vec(),
         _public_inputs.to_vec(),
-        vec![], // verification key - would be configured in real implementation
-        None,   // plonky2_proof - would be generated in real implementation
+        vec![], // verification key - would be configured in implementation
+        None,   // plonky2_proof - would be generated in implementation
     );
     
     // Use ZK proof's verify method
@@ -242,8 +242,8 @@ fn verify_citizenship_proof(proof_data: &[u8], _public_inputs: &[u8]) -> Result<
         "Citizenship-Verification".to_string(),
         proof_data.to_vec(),
         _public_inputs.to_vec(),
-        vec![], // verification key - would be configured in real implementation
-        None,   // plonky2_proof - would be generated in real implementation
+        vec![], // verification key - would be configured in implementation
+        None,   // plonky2_proof - would be generated in implementation
     );
     
     zk_proof.verify()
@@ -256,8 +256,8 @@ fn verify_reputation_proof(proof_data: &[u8], _public_inputs: &[u8]) -> Result<b
         "Reputation-Verification".to_string(),
         proof_data.to_vec(),
         _public_inputs.to_vec(),
-        vec![], // verification key - would be configured in real implementation
-        None,   // plonky2_proof - would be generated in real implementation
+        vec![], // verification key - would be configured in implementation
+        None,   // plonky2_proof - would be generated in implementation
     );
     
     zk_proof.verify()
@@ -270,8 +270,8 @@ fn verify_credential_proof(proof_data: &[u8], _public_inputs: &[u8]) -> Result<b
         "Credential-Verification".to_string(),
         proof_data.to_vec(),
         _public_inputs.to_vec(),
-        vec![], // verification key - would be configured in real implementation
-        None,   // plonky2_proof - would be generated in real implementation
+        vec![], // verification key - would be configured in implementation
+        None,   // plonky2_proof - would be generated in implementation
     );
     
     zk_proof.verify()
@@ -284,7 +284,7 @@ fn verify_quantum_signature(
     _challenge: &[u8],
 ) -> Result<bool, String> {
     // Verify CRYSTALS-Dilithium signature using lib-crypto
-    // Note: This is a simplified version - real implementation would need message reconstruction
+    // Note: This is a simplified version - implementation would need message reconstruction
     match dilithium2_verify(_challenge, signature, _public_key) {
         Ok(valid) => Ok(valid),
         Err(_) => {
@@ -306,7 +306,7 @@ fn verify_zk_response(
         response.to_vec(),
         _challenge.to_vec(),
         _public_key.to_vec(),
-        None,   // plonky2_proof - would be generated in real implementation
+        None,   // plonky2_proof - would be generated in implementation
     );
     
     zk_proof.verify()

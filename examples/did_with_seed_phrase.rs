@@ -43,7 +43,7 @@ async fn main() -> Result<()> {
     println!("DID created: {}", did_result.did_document.id);
     
     if let Some(seed_phrase) = &did_result.seed_phrase {
-        println!("\n🔑 YOUR 20-WORD RECOVERY SEED PHRASE:");
+        println!("\n YOUR 20-WORD RECOVERY SEED PHRASE:");
         println!("┌─────────────────────────────────────────────────────────────┐");
         for (i, word) in seed_phrase.words.iter().enumerate() {
             if i % 4 == 0 { println!("│ "); }

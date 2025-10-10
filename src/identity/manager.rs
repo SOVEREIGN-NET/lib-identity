@@ -45,11 +45,11 @@ impl IdentityManager {
 
 
 
-    /// 🌟 COMPLETE CITIZEN ONBOARDING SYSTEM 🌟
+    ///  COMPLETE CITIZEN ONBOARDING SYSTEM 
     /// 
     /// Creates a ZK-DID and automatically:
     /// 1. Creates soulbound ZK-DID (1:1 per human)
-    /// 2. Creates quantum-resistant wallets with real seed phrases
+    /// 2. Creates quantum-resistant wallets with seed phrases
     /// 3. Registers for DAO governance and UBI payouts
     /// 4. Grants access to all Web4 services
     /// 5. Sets up privacy-preserving credentials
@@ -224,7 +224,7 @@ impl IdentityManager {
 
     // Private helper methods from the original identity.rs
     
-    /// Set up privacy-preserving credentials - REAL IMPLEMENTATION FROM ORIGINAL
+    /// Set up privacy-preserving credentials - IMPLEMENTATION FROM ORIGINAL
     #[cfg(test)]
     async fn setup_privacy_credentials(&self, identity: &mut ZhtpIdentity) -> Result<PrivacyCredentials> {
         let current_time = std::time::SystemTime::now()
@@ -252,7 +252,7 @@ impl IdentityManager {
         identity.credentials.insert(CredentialType::Reputation, reputation_credential.clone());
 
         tracing::info!(
-            "🛡️ PRIVACY CREDENTIALS: Citizen {} has {} ZK credentials",
+            " PRIVACY CREDENTIALS: Citizen {} has {} ZK credentials",
             hex::encode(&identity.id.0[..8]),
             identity.credentials.len()
         );
@@ -263,7 +263,7 @@ impl IdentityManager {
         ))
     }
 
-    /// Create a zero-knowledge credential - REAL IMPLEMENTATION FROM ORIGINAL
+    /// Create a zero-knowledge credential - IMPLEMENTATION FROM ORIGINAL
     async fn create_zk_credential(
         &self,
         identity_id: &IdentityId,
@@ -304,7 +304,7 @@ impl IdentityManager {
         ))
     }
 
-    /// Add a credential to an identity - REAL IMPLEMENTATION FROM ORIGINAL
+    /// Add a credential to an identity - IMPLEMENTATION FROM ORIGINAL
     pub async fn add_credential(
         &mut self,
         identity_id: &IdentityId,
@@ -337,7 +337,7 @@ impl IdentityManager {
         Ok(())
     }
 
-    /// Verify an identity against requirements - REAL IMPLEMENTATION FROM ORIGINAL
+    /// Verify an identity against requirements - IMPLEMENTATION FROM ORIGINAL
     pub async fn verify_identity(
         &mut self,
         identity_id: &IdentityId,
@@ -407,7 +407,7 @@ impl IdentityManager {
         Ok(verification)
     }
 
-    /// Generate zero-knowledge proof for identity requirements - REAL IMPLEMENTATION FROM ORIGINAL
+    /// Generate zero-knowledge proof for identity requirements - IMPLEMENTATION FROM ORIGINAL
     pub async fn generate_identity_proof(
         &self,
         identity_id: &IdentityId,
@@ -471,7 +471,7 @@ impl IdentityManager {
         })
     }
 
-    /// Sign data with identity - REAL IMPLEMENTATION FROM ORIGINAL
+    /// Sign data with identity - IMPLEMENTATION FROM ORIGINAL
     pub async fn sign_with_identity(
         &self,
         identity_id: &IdentityId,
@@ -598,7 +598,7 @@ impl IdentityManager {
         self.password_manager.mark_identity_imported(&identity_id);
         
         tracing::info!(
-            "📥 IDENTITY IMPORTED: {} - Password functionality enabled",
+            " IDENTITY IMPORTED: {} - Password functionality enabled",
             hex::encode(&identity_id.0[..8])
         );
         

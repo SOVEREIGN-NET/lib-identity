@@ -2,7 +2,7 @@ use lib_identity::wallets::dao_hierarchy_demo;
 
 fn main() -> anyhow::Result<()> {
     // Simple println initialization instead of tracing
-    println!("🏛️ Hierarchical DAO Wallet System Demonstration");
+    println!(" Hierarchical DAO Wallet System Demonstration");
     println!("================================================");
 
     

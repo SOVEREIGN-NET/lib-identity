@@ -1,6 +1,6 @@
 // packages/lib-identity/src/did/document_generation.rs
 // W3C DID Document generation for ZHTP identities with seed phrase support
-// REAL IMPLEMENTATIONS from original identity.rs
+// IMPLEMENTATIONS from original identity.rs
 
 use crate::identity::ZhtpIdentity;
 // Removed unused recovery imports after cleanup
@@ -254,7 +254,7 @@ fn encode_public_key_multibase(public_key: &[u8]) -> Result<String, String> {
 /// Encode bytes in base58 format
 fn encode_base58(input: &[u8]) -> String {
     // Simplified base58-like encoding to avoid overflow
-    // In real implementation, use proper base58 crate
+    // In implementation, use proper base58 crate
     if input.is_empty() {
         return String::new();
     }
@@ -266,7 +266,7 @@ fn encode_base58(input: &[u8]) -> String {
 /// Format timestamp in ISO 8601 format
 fn format_timestamp(timestamp: u64) -> String {
     // Simple ISO 8601 format for demo (avoid overflow)
-    // In real implementation, use chrono or similar
+    // In implementation, use chrono or similar
     let seconds_per_day = 86400u64;
     let days_since_epoch = timestamp / seconds_per_day;
     let seconds_in_day = timestamp % seconds_per_day;
@@ -310,7 +310,7 @@ pub fn update_did_document(
 
 /// Resolve DID to DID Document
 pub fn resolve_did(did: &str) -> Result<DidDocument, String> {
-    // In a real implementation, this would query the DID registry
+    // In a implementation, this would query the DID registry
     // For now, return an error indicating resolution is not implemented
     Err(format!("DID resolution not implemented for: {}", did))
 }

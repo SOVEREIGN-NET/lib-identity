@@ -10,7 +10,7 @@ use lib_crypto::Hash;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    println!("🏛️  DAO Wallet System Demo");
+    println!("  DAO Wallet System Demo");
     println!("════════════════════════════");
     
     // Create DIDs for our demo
@@ -47,7 +47,7 @@ async fn main() -> Result<()> {
     }
     
     // Create NonProfit DAO wallet (creator cannot own it)
-    println!("\n🏛️  Creating NonProfit DAO Wallet...");
+    println!("\n  Creating NonProfit DAO Wallet...");
     let nonprofit_dao = manager.create_dao_wallet(
         WalletType::NonProfitDAO,
         creator_did_1.clone(),
@@ -69,7 +69,7 @@ async fn main() -> Result<()> {
     });
     
     // Create ForProfit DAO wallet (creator can own it)
-    println!("\n💼 Creating ForProfit DAO Wallet...");
+    println!("\n Creating ForProfit DAO Wallet...");
     let forprofit_dao = manager.create_dao_wallet(
         WalletType::ForProfitDAO,
         creator_did_2.clone(),
@@ -118,7 +118,7 @@ async fn main() -> Result<()> {
     )?;
     
     // Try to spend from nonprofit DAO (should work)
-    println!("\n📤 Spending from NonProfit DAO...");
+    println!("\n Spending from NonProfit DAO...");
     manager.remove_funds_from_dao_wallet(
         &nonprofit_dao,
         5000, // 5K ZHTP
@@ -154,7 +154,7 @@ async fn main() -> Result<()> {
     println!("\nPUBLIC TRANSACTION HISTORY");
     println!("───────────────────────────────");
     
-    println!("\n🏛️  NonProfit DAO Transactions (Full Transparency):");
+    println!("\n  NonProfit DAO Transactions (Full Transparency):");
     let nonprofit_txs = manager.get_dao_public_transactions(&nonprofit_dao)?;
     for (i, tx) in nonprofit_txs.iter().enumerate() {
         println!("  {}. {} {} ZHTP - {}", 
@@ -168,7 +168,7 @@ async fn main() -> Result<()> {
         println!("     Time: {}", tx.timestamp);
     }
     
-    println!("\n💼 ForProfit DAO Transactions (Partial Transparency):");
+    println!("\n ForProfit DAO Transactions (Partial Transparency):");
     let forprofit_txs = manager.get_dao_public_transactions(&forprofit_dao)?;
     for (i, tx) in forprofit_txs.iter().enumerate() {
         println!("  {}. {} {} ZHTP - {}", 
@@ -227,10 +227,10 @@ async fn main() -> Result<()> {
     println!("\nDAO Wallet Demo Completed!");
     println!("Key Features Demonstrated:");
     println!("  DID-required creation (cannot create 'out of thin air')");
-    println!("  🏛️  NonProfit DAOs have no owner (even creator cannot own)");
-    println!("  💼 ForProfit DAOs can be owned by creator");
+    println!("    NonProfit DAOs have no owner (even creator cannot own)");
+    println!("   ForProfit DAOs can be owned by creator");
     println!("  Full public transaction transparency");
-    println!("  🛡️  Governance rules enforce spending limits");
+    println!("    Governance rules enforce spending limits");
     println!("  Multi-controller authorization system");
     
     Ok(())

@@ -424,7 +424,7 @@ impl CrossPackageIntegration {
         health_status
     }
 
-    /// Simulate package communication (in real implementation, this would use actual IPC/RPC)
+    /// Simulate package communication (in implementation, this would use actual IPC/RPC)
     async fn simulate_package_communication(&self, request: CrossPackageRequest) -> Result<IntegrationResponse, Box<dyn std::error::Error>> {
         // Simulate network delay
         tokio::time::sleep(Duration::from_millis(50)).await;

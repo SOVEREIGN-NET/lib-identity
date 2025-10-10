@@ -60,7 +60,7 @@ let anonymous_identity = privacy_manager.create_anonymous_identity(
 println!("Anonymous ID: {}", anonymous_identity.anonymous_id);
 println!("Session expires at: {}", anonymous_identity.expires_at);
 
-// Anonymous identity is cryptographically unlinkable to real identity
+// Anonymous identity is cryptographically unlinkable to identity
 assert!(anonymous_identity.unlinkability_proof.verify().await?);
 ```
 
@@ -81,7 +81,7 @@ let anonymous_presentation = present_credential_anonymously(
 println!("Credential type: {:?}", anonymous_presentation.credential_type);
 println!("Anonymity set size: {}", anonymous_presentation.anonymity_set_size);
 
-// No linkage to real identity or previous presentations
+// No linkage to identity or previous presentations
 assert!(anonymous_presentation.is_unlinkable());
 ```
 

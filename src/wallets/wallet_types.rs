@@ -376,7 +376,7 @@ impl QuantumWallet {
     
     /// Encrypt seed phrase for secure storage
     pub fn encrypt_seed_phrase(seed_text: &str, wallet_id: &str) -> Result<String, anyhow::Error> {
-        // Simple encryption for demo (real implementation would use proper encryption)
+        // Simple encryption for demo (implementation would use proper encryption)
         let key = format!("WALLET_SEED_KEY_{}", wallet_id);
         let mut encrypted = Vec::new();
         

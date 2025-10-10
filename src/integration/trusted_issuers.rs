@@ -254,7 +254,7 @@ impl TrustedIssuersRegistry {
 
     /// Verify issuer certificate
     async fn verify_certificate(&self, issuer: &TrustedIssuer) -> Result<bool, Box<dyn std::error::Error>> {
-        // In real implementation, would verify X.509 certificate chain
+        // In implementation, would verify X.509 certificate chain
         // For now, simulate based on issuer type and trust level
         match issuer.issuer_type {
             IssuerType::ZhtpFoundation => Ok(true),
@@ -267,14 +267,14 @@ impl TrustedIssuersRegistry {
 
     /// Verify issuer signature
     async fn verify_signature(&self, issuer: &TrustedIssuer) -> Result<bool, Box<dyn std::error::Error>> {
-        // In real implementation, would verify digital signature
+        // In implementation, would verify digital signature
         // For now, check if public key is valid
         Ok(!issuer.public_key.is_empty() && issuer.public_key.len() >= 32)
     }
 
     /// Check revocation status
     async fn check_revocation_status(&self, issuer: &TrustedIssuer) -> Result<bool, Box<dyn std::error::Error>> {
-        // In real implementation, would check revocation endpoint
+        // In implementation, would check revocation endpoint
         if let Some(_revocation_endpoint) = &issuer.revocation_endpoint {
             // Simulate revocation check
             // In practice, would make HTTP request to revocation endpoint
@@ -286,7 +286,7 @@ impl TrustedIssuersRegistry {
 
     /// Verify trust chain
     async fn verify_trust_chain(&self, issuer: &TrustedIssuer) -> Result<bool, Box<dyn std::error::Error>> {
-        // In real implementation, would verify certificate chain to root CA
+        // In implementation, would verify certificate chain to root CA
         match issuer.issuer_type {
             IssuerType::ZhtpFoundation => Ok(true), // Self-signed root
             IssuerType::Government => Ok(true), // Government CAs are trusted

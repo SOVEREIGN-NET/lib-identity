@@ -162,7 +162,7 @@ let liveness_result = liveness_detector.verify_liveness(
 ).await?;
 
 if liveness_result.is_live {
-    println!("Liveness confirmed - real person detected");
+    println!("Liveness confirmed - person detected");
     println!("Spoofing risk: {:.2}%", liveness_result.spoofing_risk * 100.0);
 } else {
     println!("Liveness check failed - potential spoofing detected");

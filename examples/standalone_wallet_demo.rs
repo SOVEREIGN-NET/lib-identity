@@ -96,7 +96,7 @@ async fn main() -> Result<()> {
     for summary in &wallet_summaries {
         if wallet_system.wallet_has_seed_phrase(&summary.id) {
             if let Ok(Some(seed_words)) = wallet_system.export_wallet_seed_phrase(&summary.id) {
-                println!("🔑 Seed phrase for '{}': [PROTECTED - {} words]", summary.name, seed_words.len());
+                println!(" Seed phrase for '{}': [PROTECTED - {} words]", summary.name, seed_words.len());
             }
         }
     }
@@ -104,11 +104,11 @@ async fn main() -> Result<()> {
 
     // Step 6: Security reminders
     println!("6️⃣ Security Best Practices:");
-    println!("   🛡️  Each wallet has its own 20-word seed phrase");
+    println!("     Each wallet has its own 20-word seed phrase");
     println!("   Write down seed phrases on paper, store offline");
     println!("    Each wallet can be recovered independently");
     println!("    Never share seed phrases digitally or online");
-    println!("   💾 Consider multiple backup copies in secure locations");
+    println!("    Consider multiple backup copies in secure locations");
     println!("   Test recovery process before storing large amounts");
     println!();
 

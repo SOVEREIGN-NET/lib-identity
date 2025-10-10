@@ -225,7 +225,7 @@ impl RequirementsVerifier {
         identity: &ZhtpIdentity,
         proof_req: &ProofRequirement,
     ) -> Result<VerifiedProof, Box<dyn std::error::Error>> {
-        // In real implementation, would integrate with actual proof verification system
+        // In implementation, would integrate with actual proof verification system
         // For now, simulate verification based on identity data
         
         let current_time = std::time::SystemTime::now()

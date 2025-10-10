@@ -658,7 +658,7 @@ impl BiometricRecoveryManager {
     /// Detect liveness in biometric sample
     async fn detect_liveness(&self, template: &BiometricTemplate) -> Result<bool, Box<dyn std::error::Error>> {
         // Simplified liveness detection
-        // In real implementation, would use advanced algorithms specific to biometric type
+        // In implementation, would use advanced algorithms specific to biometric type
         
         match template.biometric_type {
             BiometricType::Face => {
@@ -683,7 +683,7 @@ impl BiometricRecoveryManager {
     /// Detect spoofing attempts
     async fn detect_spoofing(&self, template: &BiometricTemplate) -> Result<bool, Box<dyn std::error::Error>> {
         // Simplified spoofing detection
-        // In real implementation, would use sophisticated anti-spoofing algorithms
+        // In implementation, would use sophisticated anti-spoofing algorithms
         
         // Check for common spoofing indicators
         let mut spoofing_indicators = 0;

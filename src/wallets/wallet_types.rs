@@ -66,6 +66,97 @@ pub struct QuantumWallet {
     pub is_active: bool,
     /// DAO-specific properties
     pub dao_properties: Option<DaoWalletProperties>,
+    /// HD Wallet derivation index
+    #[serde(skip)]
+    pub derivation_index: Option<u32>,
+    /// Optional password hash for wallet-level security
+    #[serde(skip)]
+    pub password_hash: Option<Vec<u8>>,
+    /// Content owned by this wallet (content hashes from lib-storage)
+    pub owned_content: Vec<Hash>,
+    /// Total storage used by owned content in bytes
+    pub total_storage_used: u64,
+    /// Total value of owned content (for marketplace pricing)
+    pub total_content_value: u64,
+}
+
+/// Content ownership record for tracking purchases and transfers
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ContentOwnershipRecord {
+    /// Content hash
+    pub content_hash: Hash,
+    /// Current owner wallet ID
+    pub owner_wallet_id: WalletId,
+    /// Previous owner wallet ID (if transferred)
+    pub previous_owner: Option<WalletId>,
+    /// Purchase price (0 if created/uploaded by owner)
+    pub purchase_price: u64,
+    /// Acquisition timestamp
+    pub acquired_at: u64,
+    /// Transfer history
+    pub transfer_history: Vec<ContentTransfer>,
+    /// Content metadata snapshot (content_type, size, etc.)
+    pub metadata_snapshot: ContentMetadataSnapshot,
+}
+
+/// Content transfer record
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ContentTransfer {
+    /// From wallet ID
+    pub from_wallet: WalletId,
+    /// To wallet ID
+    pub to_wallet: WalletId,
+    /// Transfer price
+    pub price: u64,
+    /// Transfer timestamp
+    pub timestamp: u64,
+    /// Transaction hash
+    pub tx_hash: Hash,
+    /// Transfer type (sale, gift, etc.)
+    pub transfer_type: ContentTransferType,
+}
+
+/// Type of content transfer
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum ContentTransferType {
+    /// Direct sale for ZHTP tokens
+    Sale,
+    /// Gift (no payment)
+    Gift,
+    /// Auction sale
+    Auction,
+    /// Royalty payment to creator
+    RoyaltyPayment,
+    /// DAO treasury allocation
+    DaoAllocation,
+}
+
+/// Snapshot of content metadata for ownership records
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ContentMetadataSnapshot {
+    /// Content type (MIME)
+    pub content_type: String,
+    /// Content size in bytes
+    pub size: u64,
+    /// Content description
+    pub description: String,
+    /// Content tags
+    pub tags: Vec<String>,
+    /// Creation timestamp
+    pub created_at: u64,
+}
+
+/// Content ownership statistics for a wallet
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ContentOwnershipStatistics {
+    /// Number of content items owned
+    pub total_items: usize,
+    /// Total storage used in bytes
+    pub total_storage_bytes: u64,
+    /// Total value of owned content
+    pub total_value: u64,
+    /// Wallet ID
+    pub wallet_id: WalletId,
 }
 
 /// DAO wallet properties for transparency and governance
@@ -244,6 +335,44 @@ impl QuantumWallet {
             recent_transactions: Vec::new(),
             is_active: true,
             dao_properties: None,
+            derivation_index: None,  // Optional HD wallet feature
+            password_hash: None,  // Set via WalletPasswordManager
+            owned_content: Vec::new(),  // No content owned initially
+            total_storage_used: 0,
+            total_content_value: 0,
+        }
+    }
+    
+    /// Add content to wallet ownership
+    pub fn add_owned_content(&mut self, content_hash: Hash, size: u64, value: u64) {
+        if !self.owned_content.contains(&content_hash) {
+            self.owned_content.push(content_hash);
+            self.total_storage_used += size;
+            self.total_content_value += value;
+        }
+    }
+    
+    /// Remove content from wallet ownership
+    pub fn remove_owned_content(&mut self, content_hash: &Hash, size: u64, value: u64) {
+        if let Some(pos) = self.owned_content.iter().position(|h| h == content_hash) {
+            self.owned_content.remove(pos);
+            self.total_storage_used = self.total_storage_used.saturating_sub(size);
+            self.total_content_value = self.total_content_value.saturating_sub(value);
+        }
+    }
+    
+    /// Get all owned content hashes
+    pub fn get_owned_content(&self) -> &[Hash] {
+        &self.owned_content
+    }
+    
+    /// Get content ownership statistics
+    pub fn get_content_statistics(&self) -> ContentOwnershipStatistics {
+        ContentOwnershipStatistics {
+            total_items: self.owned_content.len(),
+            total_storage_bytes: self.total_storage_used,
+            total_value: self.total_content_value,
+            wallet_id: self.id.clone(),
         }
     }
     

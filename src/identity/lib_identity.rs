@@ -45,6 +45,22 @@ pub struct ZhtpIdentity {
     pub recovery_keys: Vec<Vec<u8>>,
     /// DID document hash for blockchain integration
     pub did_document_hash: Option<Hash>,
+    /// Owner identity (for device/node identities owned by a user/org)
+    pub owner_identity_id: Option<IdentityId>,
+    /// Designated wallet for routing/mining rewards (for device/node identities)
+    pub reward_wallet_id: Option<crate::wallets::WalletId>,
+    /// HD Wallet encrypted master seed (for hierarchical deterministic wallet generation)
+    #[serde(skip)]
+    pub encrypted_master_seed: Option<Vec<u8>>,
+    /// Next wallet derivation index for HD wallets
+    #[serde(skip)]
+    pub next_wallet_index: u32,
+    /// Optional password hash for DID-level authentication
+    #[serde(skip)]
+    pub password_hash: Option<Vec<u8>>,
+    /// Master seed phrase for identity recovery (20 words)
+    #[serde(skip)]
+    pub master_seed_phrase: Option<crate::recovery::RecoveryPhrase>,
 }
 
 impl PartialEq for ZhtpIdentity {
@@ -85,6 +101,12 @@ impl ZhtpIdentity {
             last_active: current_time,
             recovery_keys: Vec::new(),
             did_document_hash: None,
+            owner_identity_id: None,  // User identities have no owner
+            reward_wallet_id: None,    // User identities don't need this (nodes do)
+            encrypted_master_seed: None,  // Optional HD wallet feature
+            next_wallet_index: 0,
+            password_hash: None,  // Set via PasswordManager
+            master_seed_phrase: None,  // Set during identity creation
         })
     }
     
@@ -265,5 +287,41 @@ impl ZhtpIdentity {
                          attestation.confidence >= 50; // Minimum confidence threshold
         
         Ok(proof_valid)
+    }
+    
+    /// Set the reward wallet for a device/node identity
+    /// Can only be called by the owner, and wallet must belong to owner
+    pub fn set_reward_wallet(&mut self, wallet_id: crate::wallets::WalletId) -> Result<()> {
+        // Only device identities can have reward wallets
+        if self.identity_type != IdentityType::Device {
+            return Err(anyhow!("Only device identities can have reward wallets"));
+        }
+        
+        // Device must have an owner
+        if self.owner_identity_id.is_none() {
+            return Err(anyhow!("Device identity must have an owner"));
+        }
+        
+        // Note: Validation that wallet belongs to owner must be done externally
+        // since we don't have access to the owner's identity here
+        
+        self.reward_wallet_id = Some(wallet_id);
+        self.update_activity();
+        Ok(())
+    }
+    
+    /// Get the reward wallet ID for this device/node
+    pub fn get_reward_wallet(&self) -> Option<crate::wallets::WalletId> {
+        self.reward_wallet_id.clone()
+    }
+    
+    /// Check if this identity is owned by another identity
+    pub fn is_owned(&self) -> bool {
+        self.owner_identity_id.is_some()
+    }
+    
+    /// Get the owner identity ID
+    pub fn get_owner(&self) -> Option<IdentityId> {
+        self.owner_identity_id.clone()
     }
 }

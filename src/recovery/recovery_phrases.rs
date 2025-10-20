@@ -65,6 +65,12 @@ impl RecoveryPhrase {
     }
 }
 
+impl std::fmt::Display for RecoveryPhrase {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.words.join(" "))
+    }
+}
+
 /// Phrase validation rules
 #[derive(Debug, Clone)]
 pub struct PhraseValidationRules {

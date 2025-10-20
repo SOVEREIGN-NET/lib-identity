@@ -6,5 +6,5 @@
 pub mod password;
 pub mod session;
 
-pub use password::{PasswordManager, PasswordError, PasswordValidation};
+pub use password::{PasswordManager, PasswordError, PasswordValidation, PasswordStrength};
 pub use session::SessionToken;

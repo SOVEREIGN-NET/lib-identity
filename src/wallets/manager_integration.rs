@@ -7,6 +7,7 @@ use std::collections::HashMap;
 use lib_crypto::Hash;
 use crate::types::IdentityId;
 use super::wallet_types::{WalletType, WalletId, QuantumWallet, WalletSummary};
+use super::wallet_password::{WalletPasswordManager, WalletPasswordError, WalletPasswordValidation};
 
 /// Integrated wallet manager for identity-based wallet management
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -21,6 +22,9 @@ pub struct WalletManager {
     pub total_balance: u64,
     /// Creation timestamp
     pub created_at: u64,
+    /// Optional password protection for individual wallets
+    #[serde(skip)]
+    pub wallet_password_manager: WalletPasswordManager,
 }
 
 impl WalletManager {
@@ -28,7 +32,7 @@ impl WalletManager {
     pub fn new(owner_id: IdentityId) -> Self {
         let current_time = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
+            .unwrap_or_default()
             .as_secs();
         
         Self {
@@ -37,23 +41,19 @@ impl WalletManager {
             alias_map: HashMap::new(),
             total_balance: 0,
             created_at: current_time,
+            wallet_password_manager: WalletPasswordManager::new(),
         }
     }
     
-    /// Create a new standalone wallet manager (no identity required)
+    /// DEPRECATED: Standalone wallets are no longer allowed
+    /// All wallets must be attached to an identity
+    /// Use WalletManager::new(identity_id) instead
+    #[deprecated(
+        since = "0.2.0",
+        note = "Wallets must be attached to an identity. Use WalletManager::new(identity_id) instead."
+    )]
     pub fn new_standalone() -> Self {
-        let current_time = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_secs();
-        
-        Self {
-            owner_id: None,
-            wallets: HashMap::new(),
-            alias_map: HashMap::new(),
-            total_balance: 0,
-            created_at: current_time,
-        }
+        panic!("Standalone wallets are not allowed. All wallets must be attached to an identity. Use WalletManager::new(identity_id) instead.");
     }
     
     // Note: Basic wallet creation removed - use create_wallet_with_seed_phrase() for all wallets
@@ -789,5 +789,115 @@ impl WalletManager {
             authorized_dao_controllers: dao_props.authorized_dao_controllers.clone(),
             hierarchy_level,
         })
+    }
+
+    // ============================================================================
+    // WALLET PASSWORD PROTECTION - Optional security for individual wallets
+    // ============================================================================
+
+    /// Set password for a specific wallet (optional security layer)
+    pub fn set_wallet_password(
+        &mut self,
+        wallet_id: &WalletId,
+        password: &str,
+    ) -> Result<(), WalletPasswordError> {
+        // Verify wallet exists
+        let wallet = self.wallets.get(wallet_id)
+            .ok_or(WalletPasswordError::WalletNotFound)?;
+        
+        // Get wallet seed from seed phrase or generate deterministic seed
+        let wallet_seed = if let Some(seed_phrase) = &wallet.seed_phrase {
+            lib_crypto::hash_blake3(seed_phrase.to_string().as_bytes())
+        } else {
+            // Fallback: derive seed from wallet ID
+            lib_crypto::hash_blake3(&[wallet_id.0.as_slice(), b"wallet_seed"].concat())
+        };
+        
+        self.wallet_password_manager.set_wallet_password(wallet_id, password, &wallet_seed)
+    }
+
+    /// Change password for a wallet (requires old password)
+    pub fn change_wallet_password(
+        &mut self,
+        wallet_id: &WalletId,
+        old_password: &str,
+        new_password: &str,
+    ) -> Result<(), WalletPasswordError> {
+        // Verify wallet exists
+        let wallet = self.wallets.get(wallet_id)
+            .ok_or(WalletPasswordError::WalletNotFound)?;
+        
+        // Get wallet seed
+        let wallet_seed = if let Some(seed_phrase) = &wallet.seed_phrase {
+            lib_crypto::hash_blake3(seed_phrase.to_string().as_bytes())
+        } else {
+            lib_crypto::hash_blake3(&[wallet_id.0.as_slice(), b"wallet_seed"].concat())
+        };
+        
+        self.wallet_password_manager.change_wallet_password(
+            wallet_id,
+            old_password,
+            new_password,
+            &wallet_seed
+        )
+    }
+
+    /// Remove password from a wallet (requires current password)
+    pub fn remove_wallet_password(
+        &mut self,
+        wallet_id: &WalletId,
+        current_password: &str,
+    ) -> Result<(), WalletPasswordError> {
+        // Verify wallet exists
+        let wallet = self.wallets.get(wallet_id)
+            .ok_or(WalletPasswordError::WalletNotFound)?;
+        
+        // Get wallet seed
+        let wallet_seed = if let Some(seed_phrase) = &wallet.seed_phrase {
+            lib_crypto::hash_blake3(seed_phrase.to_string().as_bytes())
+        } else {
+            lib_crypto::hash_blake3(&[wallet_id.0.as_slice(), b"wallet_seed"].concat())
+        };
+        
+        self.wallet_password_manager.remove_wallet_password(
+            wallet_id,
+            current_password,
+            &wallet_seed
+        )
+    }
+
+    /// Validate wallet password (use before wallet operations)
+    pub fn validate_wallet_password(
+        &self,
+        wallet_id: &WalletId,
+        password: &str,
+    ) -> Result<WalletPasswordValidation, WalletPasswordError> {
+        // Verify wallet exists
+        let wallet = self.wallets.get(wallet_id)
+            .ok_or(WalletPasswordError::WalletNotFound)?;
+        
+        // Get wallet seed
+        let wallet_seed = if let Some(seed_phrase) = &wallet.seed_phrase {
+            lib_crypto::hash_blake3(seed_phrase.to_string().as_bytes())
+        } else {
+            lib_crypto::hash_blake3(&[wallet_id.0.as_slice(), b"wallet_seed"].concat())
+        };
+        
+        self.wallet_password_manager.validate_password(wallet_id, password, &wallet_seed)
+    }
+
+    /// Check if wallet has password protection enabled
+    pub fn wallet_has_password(&self, wallet_id: &WalletId) -> bool {
+        self.wallet_password_manager.has_password(wallet_id)
+    }
+
+    /// Get list of all password-protected wallets
+    pub fn list_password_protected_wallets(&self) -> Vec<&WalletId> {
+        self.wallet_password_manager.list_password_protected_wallets()
+    }
+
+    /// Get count of password-protected wallets
+    pub fn password_protected_wallet_count(&self) -> usize {
+        self.wallet_password_manager.password_protected_count()
     }
 }

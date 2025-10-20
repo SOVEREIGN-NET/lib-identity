@@ -70,29 +70,222 @@ pub async fn initialize_identity_system() -> Result<IdentityManager> {
 
 
 
-/// Create a standalone wallet without requiring a full identity (for network nodes)
-pub async fn create_standalone_wallet(
+/// Create a node identity with attached wallet (for network nodes)
+/// 
+/// This creates a proper identity with a wallet attached to it.
+/// Wallets cannot exist without an identity in ZHTP.
+/// Create a user/person identity with multiple wallets
+/// This creates a Person/Organization identity that can own nodes
+/// Automatically creates: Primary, Savings, and Staking wallets
+/// Returns: (identity_id, primary_wallet_id, seed_phrase)
+pub async fn create_user_identity_with_wallet(
+    user_name: String,
     wallet_name: String,
-    alias: Option<String>,
-) -> Result<(WalletId, String)> {
-    use crate::wallets::{WalletManager, WalletType};
+    wallet_alias: Option<String>,
+) -> Result<(IdentityId, WalletId, String)> {
+    use crate::identity::IdentityManager;
+    use crate::wallets::WalletType;
     use lib_crypto::Hash;
     
-    // Create a temporary identity ID for the standalone wallet
-    let temp_identity_id = Hash::from_bytes(&rand::random::<[u8; 32]>());
-    let mut wallet_manager = WalletManager::new(temp_identity_id);
+    tracing::info!("Creating user identity '{}' with multiple wallets", user_name);
     
-    // Create wallet with seed phrase
-    let (wallet_id, seed_phrase_struct) = wallet_manager.create_wallet_with_seed_phrase(
+    // Generate real cryptographic keypair (not random seed)
+    let keypair = lib_crypto::generate_keypair()?;
+    let public_key = keypair.public_key.dilithium_pk.clone();
+    
+    // Create identity ID from real public key
+    let identity_id = Hash::from_bytes(&public_key);
+    
+    // Create a Human or Organization identity (can own nodes and have wallets)
+    let mut identity = ZhtpIdentity {
+        id: identity_id.clone(),
+        identity_type: IdentityType::Human,  // User identity, not device
+        public_key: public_key.to_vec(),
+        ownership_proof: lib_proofs::ZeroKnowledgeProof {
+            proof_system: "UserIdentity".to_string(),
+            proof_data: vec![0u8; 32],
+            public_inputs: public_key.to_vec(),
+            verification_key: vec![0u8; 32],
+            plonky2_proof: None,
+            proof: vec![],
+        },
+        credentials: std::collections::HashMap::new(),
+        reputation: 100,
+        age: None,
+        access_level: AccessLevel::FullCitizen,
+        metadata: std::collections::HashMap::from([(
+            "user_name".to_string(),
+            user_name.clone(),
+        )]),
+        private_data_id: Some(identity_id.clone()),
+        wallet_manager: WalletManager::new(identity_id.clone()),
+        attestations: Vec::new(),
+        created_at: std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)?
+            .as_secs(),
+        last_active: std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)?
+            .as_secs(),
+        recovery_keys: vec![],
+        did_document_hash: None,
+        owner_identity_id: None,     // Users don't have owners
+        reward_wallet_id: None,       // Users don't need this (nodes do)
+        encrypted_master_seed: None,
+        next_wallet_index: 0,
+        password_hash: None,
+        master_seed_phrase: None,
+    };
+    
+    // Create PRIMARY wallet (main wallet for transactions and node rewards)
+    let (primary_wallet_id, seed_phrase_struct) = identity.wallet_manager.create_wallet_with_seed_phrase(
         WalletType::Standard,
-        wallet_name,
-        alias,
+        wallet_name.clone(),
+        wallet_alias.clone(),
     ).await?;
+    
+    tracing::info!(
+        "✓ Created PRIMARY wallet {} for identity {}",
+        hex::encode(&primary_wallet_id.0),
+        hex::encode(&identity_id.0)
+    );
+    
+    // Create SAVINGS wallet (for long-term storage)
+    let savings_name = format!("{} - Savings", wallet_name);
+    let (savings_wallet_id, _) = identity.wallet_manager.create_wallet_with_seed_phrase(
+        WalletType::Standard,
+        savings_name,
+        Some("savings".to_string()),
+    ).await?;
+    
+    tracing::info!(
+        "✓ Created SAVINGS wallet {} for identity {}",
+        hex::encode(&savings_wallet_id.0),
+        hex::encode(&identity_id.0)
+    );
+    
+    // Create STAKING wallet (for staking and governance)
+    let staking_name = format!("{} - Staking", wallet_name);
+    let (staking_wallet_id, _) = identity.wallet_manager.create_wallet_with_seed_phrase(
+        WalletType::Standard,
+        staking_name,
+        Some("staking".to_string()),
+    ).await?;
+    
+    tracing::info!(
+        "✓ Created STAKING wallet {} for identity {}",
+        hex::encode(&staking_wallet_id.0),
+        hex::encode(&identity_id.0)
+    );
+    
+    // Store the identity
+    let mut manager = IdentityManager::new();
+    manager.add_identity(identity);
     
     // Convert RecoveryPhrase to string (20 words joined by spaces)
     let seed_phrase_string = seed_phrase_struct.words.join(" ");
     
-    Ok((wallet_id, seed_phrase_string))
+    tracing::info!(
+        "✓ Created user identity {} with 3 wallets (Primary: {}, Savings: {}, Staking: {})",
+        hex::encode(&identity_id.0),
+        hex::encode(&primary_wallet_id.0),
+        hex::encode(&savings_wallet_id.0),
+        hex::encode(&staking_wallet_id.0)
+    );
+    
+    // Return the primary wallet ID and its seed phrase
+    Ok((identity_id, primary_wallet_id, seed_phrase_string))
+}
+
+/// Create a node/device identity owned by a user
+/// This creates a Device identity for networking, with no wallets
+/// Rewards go to the owner's designated wallet
+pub async fn create_node_device_identity(
+    owner_identity_id: IdentityId,
+    reward_wallet_id: WalletId,
+    node_name: String,
+) -> Result<IdentityId> {
+    use crate::identity::IdentityManager;
+    use lib_crypto::Hash;
+    
+    tracing::info!(
+        "Creating node device '{}' owned by identity {}",
+        node_name,
+        hex::encode(&owner_identity_id.0)
+    );
+    
+    // Generate real cryptographic keypair for the node
+    let keypair = lib_crypto::generate_keypair()?;
+    let public_key = keypair.public_key.dilithium_pk.clone();
+    
+    // Create node identity ID from real public key
+    let node_identity_id = Hash::from_bytes(&public_key);
+    
+    // Create a Device identity (for DHT/networking, owned by user)
+    let node_identity = ZhtpIdentity {
+        id: node_identity_id.clone(),
+        identity_type: IdentityType::Device,  // Device/node identity
+        public_key: public_key.to_vec(),
+        ownership_proof: lib_proofs::ZeroKnowledgeProof {
+            proof_system: "NodeDevice".to_string(),
+            proof_data: vec![0u8; 32],
+            public_inputs: public_key.to_vec(),
+            verification_key: vec![0u8; 32],
+            plonky2_proof: None,
+            proof: vec![],
+        },
+        credentials: std::collections::HashMap::new(),
+        reputation: 100,
+        age: None,
+        access_level: AccessLevel::FullCitizen,
+        metadata: std::collections::HashMap::from([
+            ("node_name".to_string(), node_name.clone()),
+            ("owner_identity".to_string(), hex::encode(&owner_identity_id.0)),
+        ]),
+        private_data_id: Some(node_identity_id.clone()),
+        wallet_manager: WalletManager::new(node_identity_id.clone()),  // Empty wallet manager
+        attestations: Vec::new(),
+        created_at: std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)?
+            .as_secs(),
+        last_active: std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)?
+            .as_secs(),
+        recovery_keys: vec![],
+        did_document_hash: None,
+        owner_identity_id: Some(owner_identity_id.clone()),  // Owned by user
+        reward_wallet_id: Some(reward_wallet_id),     // Rewards go here
+        encrypted_master_seed: None,
+        next_wallet_index: 0,
+        password_hash: None,
+        master_seed_phrase: None,
+    };
+    
+    // Store the node identity
+    let mut manager = IdentityManager::new();
+    manager.add_identity(node_identity);
+    
+    tracing::info!(
+        "Created node device {} owned by {}",
+        hex::encode(&node_identity_id.0),
+        hex::encode(&owner_identity_id.0)
+    );
+    
+    Ok(node_identity_id)
+}
+
+/// DEPRECATED: Use create_user_identity_with_wallet instead
+/// This name is confusing - "node" identity implies a device, but it was creating user identities
+#[deprecated(
+    since = "0.2.0",
+    note = "Use create_user_identity_with_wallet for users or create_node_device_identity for nodes"
+)]
+pub async fn create_node_identity_with_wallet(
+    node_name: String,
+    wallet_name: String,
+    wallet_alias: Option<String>,
+) -> Result<(IdentityId, WalletId, String)> {
+    // Redirect to the proper function
+    create_user_identity_with_wallet(node_name, wallet_name, wallet_alias).await
 }
 
 /// Demonstrate hierarchical DAO wallet functionality

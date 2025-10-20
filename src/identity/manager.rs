@@ -18,6 +18,7 @@ use crate::wallets::WalletType;
 use crate::auth::{PasswordManager, PasswordError, PasswordValidation};
 
 /// Identity Manager for ZHTP - Complete implementation from original identity.rs
+#[derive(Debug)]
 pub struct IdentityManager {
     /// Local identity store
     identities: HashMap<IdentityId, ZhtpIdentity>,
@@ -121,6 +122,12 @@ impl IdentityManager {
                 .as_secs(),
             recovery_keys: vec![],
             did_document_hash: None,
+            owner_identity_id: None,  // Humans don't have owners
+            reward_wallet_id: None,   // Humans don't need this (nodes do)
+            encrypted_master_seed: None,
+            next_wallet_index: 0,
+            password_hash: None,
+            master_seed_phrase: None,
         };
         
         // Store private data
@@ -580,6 +587,12 @@ impl IdentityManager {
                 .as_secs(),
             recovery_keys: vec![],
             did_document_hash: None,
+            owner_identity_id: None,  // Humans don't have owners
+            reward_wallet_id: None,   // Humans don't need this (nodes do)
+            encrypted_master_seed: None,
+            next_wallet_index: 0,
+            password_hash: None,
+            master_seed_phrase: Some(crate::recovery::RecoveryPhrase::from_words(phrase_words.clone())?),
         };
         
         // Create private data
@@ -616,6 +629,56 @@ impl IdentityManager {
         
         let seed = private_data.seed();
         self.password_manager.set_password(identity_id, password, seed)
+    }
+
+    /// Check password strength without setting it
+    pub fn check_password_strength(password: &str) -> Result<crate::auth::PasswordStrength, PasswordError> {
+        PasswordManager::validate_password_strength(password)
+    }
+
+    /// Change password for an imported identity (requires old password)
+    pub fn change_identity_password(
+        &mut self,
+        identity_id: &IdentityId,
+        old_password: &str,
+        new_password: &str,
+    ) -> Result<(), PasswordError> {
+        let private_data = self.private_data.get(identity_id)
+            .ok_or(PasswordError::IdentityNotImported)?;
+        
+        let seed = private_data.seed();
+        self.password_manager.change_password(
+            identity_id,
+            old_password,
+            new_password,
+            seed
+        )
+    }
+
+    /// Remove password for an imported identity (requires current password verification)
+    pub fn remove_identity_password(
+        &mut self,
+        identity_id: &IdentityId,
+        current_password: &str,
+    ) -> Result<(), PasswordError> {
+        // Verify current password first
+        let private_data = self.private_data.get(identity_id)
+            .ok_or(PasswordError::IdentityNotImported)?;
+        
+        let seed = private_data.seed();
+        let validation = self.password_manager.validate_password(
+            identity_id,
+            current_password,
+            seed
+        )?;
+        
+        if !validation.valid {
+            return Err(PasswordError::InvalidPassword);
+        }
+
+        // Remove password
+        self.password_manager.remove_password(identity_id);
+        Ok(())
     }
 
     /// Validate password for signin

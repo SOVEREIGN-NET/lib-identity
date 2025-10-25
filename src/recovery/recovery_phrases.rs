@@ -178,38 +178,57 @@ impl RecoveryPhraseManager {
         // Validate generation options
         self.validate_generation_options(&options)?;
 
-        // Generate entropy
-        let entropy = self.generate_entropy(&options.entropy_source, options.word_count).await?;
-        
-        // Load wordlist for specified language
-        let wordlist = self.load_wordlist(&options.language)?;
-        
-        // Generate words from entropy
-        let words = self.entropy_to_words(&entropy, &wordlist, options.word_count)?;
-        
-        // Generate checksum if required
-        let checksum = if options.include_checksum {
-            self.generate_checksum(&words, &entropy)?
-        } else {
-            String::new()
-        };
+        // Retry up to 10 times if generated phrase contains banned words
+        const MAX_RETRIES: usize = 10;
+        for attempt in 1..=MAX_RETRIES {
+            // Generate entropy
+            let entropy = self.generate_entropy(&options.entropy_source, options.word_count).await?;
+            
+            // Load wordlist for specified language
+            let wordlist = self.load_wordlist(&options.language)?;
+            
+            // Generate words from entropy
+            let words = self.entropy_to_words(&entropy, &wordlist, options.word_count)?;
+            
+            // Generate checksum if required
+            let checksum = if options.include_checksum {
+                self.generate_checksum(&words, &entropy)?
+            } else {
+                String::new()
+            };
 
-        let phrase = RecoveryPhrase {
-            words: words.clone(),
-            entropy,
-            checksum,
-            language: options.language,
-            word_count: options.word_count,
-        };
+            let phrase = RecoveryPhrase {
+                words: words.clone(),
+                entropy,
+                checksum,
+                language: options.language.clone(),
+                word_count: options.word_count,
+            };
 
-        // Validate generated phrase
-        let validation_result = self.validate_phrase(&phrase).await?;
-        if !validation_result.valid {
+            // Validate generated phrase
+            let validation_result = self.validate_phrase(&phrase).await?;
+            if validation_result.valid {
+                println!("✓ Generated {}-word recovery phrase for {} (attempt {})", options.word_count, identity_id, attempt);
+                return Ok(phrase);
+            }
+            
+            // If validation failed due to banned words, retry
+            if !validation_result.banned_words_found.is_empty() {
+                tracing::warn!(
+                    "Generated phrase contains banned words: {:?} (attempt {}/{}), regenerating...",
+                    validation_result.banned_words_found,
+                    attempt,
+                    MAX_RETRIES
+                );
+                continue;
+            }
+            
+            // If validation failed for other reasons, don't retry
             return Err(anyhow!("Generated phrase failed validation: {:?}", validation_result.errors));
         }
 
-        println!("✓ Generated {}-word recovery phrase for {}", options.word_count, identity_id);
-        Ok(phrase)
+        // If we exhausted all retries, return error
+        Err(anyhow!("Failed to generate valid recovery phrase after {} attempts (kept hitting banned words)", MAX_RETRIES))
     }
 
     /// Store recovery phrase (encrypted)

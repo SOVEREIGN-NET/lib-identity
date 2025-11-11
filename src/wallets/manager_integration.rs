@@ -146,7 +146,7 @@ impl WalletManager {
         if seed_words.len() != 20 {
             return Err(anyhow!("Exactly 20 seed phrase words required for wallet recovery"));
         }
-        
+
         // Reconstruct seed phrase
         let seed_phrase = crate::recovery::RecoveryPhrase {
             words: seed_words.to_vec(),
@@ -155,15 +155,15 @@ impl WalletManager {
             language: "english".to_string(),
             word_count: 20,
         };
-        
+
         // Generate deterministic wallet from seed phrase
         let seed_text = seed_words.join(" ");
         let wallet_seed = lib_crypto::hash_blake3(seed_text.as_bytes());
-        
+
         // Generate quantum-resistant public key from seed
         let mut public_key = vec![0u8; 32];
         public_key.copy_from_slice(&wallet_seed[..32]);
-        
+
         // Create recovered wallet
         let mut wallet = QuantumWallet::new(
             WalletType::Standard, // Default type for recovered wallets
@@ -172,29 +172,96 @@ impl WalletManager {
             self.owner_id.clone(),
             public_key,
         );
-        
+
         // Set seed phrase information
         wallet.seed_phrase = Some(seed_phrase);
         wallet.encrypted_seed = Some(QuantumWallet::encrypt_seed_phrase(&seed_text, &hex::encode(&wallet.id.0))?);
-        
+
         // Generate seed commitment
         let commitment_hash = lib_crypto::hash_blake3(format!("ZHTP_WALLET_SEED:{}", seed_text).as_bytes());
         wallet.seed_commitment = Some(format!("zhtp:wallet:commitment:{}", hex::encode(commitment_hash)));
-        
+
         let wallet_id = wallet.id.clone();
-        
+
         // Store wallet
         self.wallets.insert(wallet_id.clone(), wallet);
-        
+
         // Store alias mapping if provided
         if let Some(alias) = alias {
             self.alias_map.insert(alias, wallet_id.clone());
         }
-        
+
         println!("Wallet recovered successfully from seed phrase");
         println!("   Wallet ID: {}", hex::encode(&wallet_id.0[..8]));
-        
+
         Ok(wallet_id)
+    }
+
+    /// Recover wallet from 20-word seed phrase with specific wallet type
+    /// Used for full identity restoration with Primary, UBI, and Savings wallets
+    pub async fn recover_wallet_from_seed_phrase_with_type(
+        &mut self,
+        wallet_type: WalletType,
+        seed_words: &[String],
+        wallet_name: String,
+        alias: Option<String>,
+    ) -> Result<(WalletId, crate::recovery::RecoveryPhrase)> {
+        if seed_words.len() != 20 {
+            return Err(anyhow!("Exactly 20 seed phrase words required for wallet recovery"));
+        }
+
+        // Reconstruct seed phrase
+        let seed_phrase = crate::recovery::RecoveryPhrase {
+            words: seed_words.to_vec(),
+            entropy: vec![], // Would be reconstructed in implementation
+            checksum: String::new(), // Would be validated in implementation
+            language: "english".to_string(),
+            word_count: 20,
+        };
+
+        // Generate deterministic wallet from seed phrase
+        let seed_text = seed_words.join(" ");
+        let wallet_seed = lib_crypto::hash_blake3(seed_text.as_bytes());
+
+        // Generate quantum-resistant public key from seed
+        let mut public_key = vec![0u8; 32];
+        public_key.copy_from_slice(&wallet_seed[..32]);
+
+        // Create recovered wallet with specified type
+        let mut wallet = QuantumWallet::new(
+            wallet_type.clone(),
+            wallet_name.clone(),
+            alias.clone(),
+            self.owner_id.clone(),
+            public_key,
+        );
+
+        // Set seed phrase information
+        wallet.seed_phrase = Some(seed_phrase.clone());
+        wallet.encrypted_seed = Some(QuantumWallet::encrypt_seed_phrase(&seed_text, &hex::encode(&wallet.id.0))?);
+
+        // Generate seed commitment
+        let commitment_hash = lib_crypto::hash_blake3(format!("ZHTP_WALLET_SEED:{}", seed_text).as_bytes());
+        wallet.seed_commitment = Some(format!("zhtp:wallet:commitment:{}", hex::encode(commitment_hash)));
+
+        let wallet_id = wallet.id.clone();
+
+        // Store wallet
+        self.wallets.insert(wallet_id.clone(), wallet);
+
+        // Store alias mapping if provided
+        if let Some(alias) = alias {
+            self.alias_map.insert(alias, wallet_id.clone());
+        }
+
+        tracing::info!(
+            "Wallet recovered from seed phrase: type={:?}, id={}, name={}",
+            wallet_type,
+            hex::encode(&wallet_id.0[..8]),
+            wallet_name
+        );
+
+        Ok((wallet_id, seed_phrase))
     }
     
     /// Get wallet by ID

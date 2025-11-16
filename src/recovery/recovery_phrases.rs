@@ -208,7 +208,7 @@ impl RecoveryPhraseManager {
             // Validate generated phrase
             let validation_result = self.validate_phrase(&phrase).await?;
             if validation_result.valid {
-                println!("✓ Generated {}-word recovery phrase for {} (attempt {})", options.word_count, identity_id, attempt);
+                println!(" Generated {}-word recovery phrase for {} (attempt {})", options.word_count, identity_id, attempt);
                 return Ok(phrase);
             }
             
@@ -301,7 +301,7 @@ impl RecoveryPhraseManager {
             last_validation: Some(Instant::now()),
         });
 
-        println!("✓ Recovery phrase stored securely for identity {}", identity_id);
+        println!(" Recovery phrase stored securely for identity {}", identity_id);
         Ok(phrase_id)
     }
 
@@ -353,7 +353,7 @@ impl RecoveryPhraseManager {
         // Update usage tracking
         self.record_successful_recovery(&phrase_id);
         
-        println!("✓ Identity {} successfully recovered using recovery phrase", identity_id);
+        println!(" Identity {} successfully recovered using recovery phrase", identity_id);
         Ok(identity_id)
     }
 

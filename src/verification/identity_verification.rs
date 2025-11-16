@@ -154,7 +154,7 @@ impl IdentityVerifier {
     /// Initialize with cross-package integration
     pub async fn initialize(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         self.integration.initialize_connections().await?;
-        println!("✓ Identity verifier initialized with cross-package integration");
+        println!(" Identity verifier initialized with cross-package integration");
         Ok(())
     }
 

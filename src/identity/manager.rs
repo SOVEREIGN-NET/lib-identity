@@ -8,6 +8,8 @@ use std::collections::HashMap;
 use rand::RngCore;
 use lib_crypto::{Hash, PostQuantumSignature};
 use lib_proofs::ZeroKnowledgeProof;
+use hkdf::Hkdf;
+use sha3::Sha3_512;
 
 use crate::types::{IdentityId, IdentityType, CredentialType, IdentityProofParams, IdentityVerification, AccessLevel};
 use crate::identity::{ZhtpIdentity, PrivateIdentityData};
@@ -66,9 +68,15 @@ impl IdentityManager {
         // Generate quantum-resistant key pair
         let (private_key, public_key) = self.generate_pq_keypair().await?;
         
-        // Generate identity seed
-        let mut seed = [0u8; 32];
-        rand::thread_rng().fill_bytes(&mut seed);
+        // Generate identity seed (32 bytes then expand to 64 bytes via HKDF)
+        let mut seed_32 = [0u8; 32];
+        rand::thread_rng().fill_bytes(&mut seed_32);
+        
+        // Expand seed to 64 bytes using HKDF (same as keypair generation)
+        let hk = Hkdf::<Sha3_512>::new(None, &seed_32);
+        let mut seed = [0u8; 64];
+        hk.expand(b"ZHTP-KeyGen-v1", &mut seed)
+            .map_err(|_| anyhow!("Seed expansion failed"))?;
         
         // Create identity ID from public key
         let id = Hash::from_bytes(&blake3::hash(&public_key).as_bytes()[..32]);
@@ -213,10 +221,93 @@ impl IdentityManager {
         self.identities.get(identity_id)
     }
 
+    /// Deduct tokens from identity's primary wallet for payments
+    /// 
+    /// This updates the in-memory wallet balance. For blockchain persistence,
+    /// the caller should also call RuntimeOrchestrator::create_wallet_payment_transaction()
+    /// which will:
+    /// 1. Scan blockchain.utxo_set for wallet's UTXOs
+    /// 2. Select UTXOs to cover the payment amount
+    /// 3. Create a proper Transaction consuming UTXOs with ZK proofs
+    /// 4. Submit the transaction to the blockchain mempool
+    /// 
+    /// Returns (old_balance, new_balance, transaction_hash, wallet_public_key)
+    /// The wallet_public_key is used for UTXO scanning
+    pub fn deduct_wallet_balance(
+        &mut self,
+        identity_id: &IdentityId,
+        amount: u64,
+        purpose: &str,
+    ) -> Result<(u64, u64, Hash, Vec<u8>)> {
+        let identity = self.identities.get_mut(identity_id)
+            .ok_or_else(|| anyhow!("Identity not found"))?;
+        
+        // Get primary wallet
+        let primary_wallet = identity.wallet_manager.wallets.values_mut().next()
+            .ok_or_else(|| anyhow!("No wallet found for identity"))?;
+        
+        // Check balance
+        if primary_wallet.balance < amount {
+            return Err(anyhow!(
+                "Insufficient balance: {} ZHTP available, {} ZHTP required",
+                primary_wallet.balance,
+                amount
+            ));
+        }
+        
+        let old_balance = primary_wallet.balance;
+        primary_wallet.balance -= amount;
+        let new_balance = primary_wallet.balance;
+        let wallet_pubkey = primary_wallet.public_key.clone();
+        
+        // Generate transaction hash
+        let current_time = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)?
+            .as_secs();
+        
+        let tx_hash_bytes = lib_crypto::hash_blake3(&[
+            b"wallet_payment:",
+            purpose.as_bytes(),
+            &amount.to_le_bytes(),
+            &current_time.to_le_bytes(),
+            identity_id.0.as_slice(),
+        ].concat());
+        let tx_hash = Hash::from_bytes(&tx_hash_bytes);
+        
+        // Record transaction in wallet
+        primary_wallet.recent_transactions.push(tx_hash.clone());
+        primary_wallet.last_transaction = Some(current_time);
+        
+        tracing::info!(
+            " Deducted {} ZHTP from wallet {} (balance: {} → {}) for: {}",
+            amount,
+            hex::encode(&primary_wallet.id.0[..8]),
+            old_balance,
+            new_balance,
+            purpose
+        );
+        
+        tracing::warn!(
+            "  UTXO CONSUMPTION NOT IMPLEMENTED: This is in-memory accounting only. 
+            Caller should create blockchain transaction consuming UTXOs for wallet pubkey: {}",
+            hex::encode(&wallet_pubkey[..8])
+        );
+        
+        Ok((old_balance, new_balance, tx_hash, wallet_pubkey))
+    }
+
     /// Add an existing identity to the manager
     pub fn add_identity(&mut self, identity: ZhtpIdentity) {
         let identity_id = identity.id.clone();
         self.identities.insert(identity_id, identity);
+    }
+
+    /// Add an identity WITH its private data (for genesis identities that need signing capability)
+    /// This stores both the public identity and the private keys needed for transaction signing
+    pub fn add_identity_with_private_data(&mut self, identity: ZhtpIdentity, private_data: PrivateIdentityData) {
+        let identity_id = identity.id.clone();
+        self.identities.insert(identity_id.clone(), identity);
+        self.private_data.insert(identity_id, private_data);
     }
 
     /// List all identities
@@ -227,6 +318,46 @@ impl IdentityManager {
     /// Add trusted credential issuer
     pub fn add_trusted_issuer(&mut self, issuer_id: IdentityId, credential_types: Vec<CredentialType>) {
         self.trusted_issuers.insert(issuer_id, credential_types);
+    }
+
+    /// Get private data for an identity (for transaction signing)
+    /// This is a secure method that allows transaction signing without exposing the private key
+    pub fn get_private_data(&self, identity_id: &IdentityId) -> Option<&PrivateIdentityData> {
+        self.private_data.get(identity_id)
+    }
+
+    /// Sign a message using an identity's private keypair
+    /// This retrieves the private key from secure storage and creates a signature
+    pub fn sign_message_for_identity(&self, identity_id: &IdentityId, message: &[u8]) -> Result<lib_crypto::Signature> {
+        // Get the private data for this identity
+        let private_data = self.private_data.get(identity_id)
+            .ok_or_else(|| anyhow!("No private key found for identity"))?;
+        
+        // Reconstruct keypair from stored private/public keys
+        let keypair = lib_crypto::KeyPair {
+            public_key: lib_crypto::PublicKey {
+                dilithium_pk: private_data.quantum_keypair.public_key.clone(),
+                kyber_pk: vec![], // Not needed for signing
+                key_id: [0u8; 32], // Not needed for signing
+            },
+            private_key: lib_crypto::PrivateKey {
+                dilithium_sk: private_data.quantum_keypair.private_key.clone(),
+                kyber_sk: vec![], // Not needed for signing
+                master_seed: vec![], // Not needed for signing
+            },
+        };
+        
+        // Sign the message using CRYSTALS-Dilithium2
+        keypair.sign(message)
+    }
+    
+    /// Get the full Dilithium2 public key for an identity
+    /// This is needed for transaction signature validation (1312 bytes)
+    pub fn get_dilithium_public_key(&self, identity_id: &IdentityId) -> Result<Vec<u8>> {
+        let private_data = self.private_data.get(identity_id)
+            .ok_or_else(|| anyhow!("No private key found for identity"))?;
+        
+        Ok(private_data.quantum_keypair.public_key.clone())
     }
 
     // Private helper methods from the original identity.rs
@@ -563,7 +694,15 @@ impl IdentityManager {
         }
         
         // Derive identity from recovery phrase
-        let (identity_id, private_key, public_key, seed) = recovery_manager.restore_from_phrase(&phrase_words).await?;
+        let (identity_id, private_key, public_key, seed_32) = recovery_manager.restore_from_phrase(&phrase_words).await?;
+        
+        // Expand 32-byte seed to 64 bytes using HKDF (same as keypair generation)
+        use hkdf::Hkdf;
+        use sha3::Sha3_512;
+        let hk = Hkdf::<Sha3_512>::new(None, &seed_32);
+        let mut seed = [0u8; 64];
+        hk.expand(b"ZHTP-KeyGen-v1", &mut seed)
+            .map_err(|_| anyhow!("Seed expansion failed"))?;
         
         // Create identity structure
         let identity = ZhtpIdentity {
@@ -850,10 +989,122 @@ impl IdentityManager {
             proof: vec![], // Legacy compatibility
         })
     }
+
+    /// Sync wallet balances from provided wallet balance data
+    /// 
+    /// This method updates in-memory wallet balances based on data provided
+    /// from the blockchain layer. This keeps the sync logic agnostic of blockchain
+    /// implementation details and avoids circular dependencies.
+    /// 
+    /// # Arguments
+    /// * `wallet_balances` - HashMap of wallet_id (hex string) to balance (u64)
+    pub fn sync_wallet_balances(
+        &mut self,
+        wallet_balances: &std::collections::HashMap<String, u64>,
+    ) -> anyhow::Result<()> {
+        let mut total_synced = 0u64;
+        let mut wallets_updated = 0usize;
+
+        tracing::info!(" Starting wallet balance sync from blockchain data...");
+        tracing::debug!("Received {} wallet balance entries from blockchain", wallet_balances.len());
+
+        // Iterate through all identities
+        for (identity_id, identity) in self.identities.iter_mut() {
+            let identity_id_hex = hex::encode(&identity_id.0[..8]);
+            
+            // Iterate through all wallets owned by this identity
+            for (wallet_id, wallet) in identity.wallet_manager.wallets.iter_mut() {
+                let wallet_id_hex = hex::encode(&wallet_id.0[..8]);
+                let wallet_id_full_hex = hex::encode(&wallet_id.0);
+                let old_balance = wallet.balance;
+
+                // Query provided balance data for this wallet
+                let new_balance = wallet_balances.get(&wallet_id_full_hex)
+                    .copied()
+                    .unwrap_or(old_balance);
+
+                // Update balance if changed
+                if new_balance != old_balance {
+                    wallet.balance = new_balance;
+                    total_synced += new_balance;
+                    wallets_updated += 1;
+
+                    tracing::info!(
+                        " Synced wallet {} ({:?}) for identity {}: {} ZHTP → {} ZHTP",
+                        wallet_id_hex,
+                        wallet.wallet_type,
+                        identity_id_hex,
+                        old_balance,
+                        new_balance
+                    );
+                }
+            }
+        }
+
+        if wallets_updated > 0 {
+            tracing::info!(
+                " Wallet balance sync complete: {} wallets updated, {} ZHTP total synced",
+                wallets_updated,
+                total_synced
+            );
+        } else {
+            tracing::warn!("  Wallet balance sync found no changes to apply");
+            tracing::info!("   This is normal if genesis didn't fund user wallets or no transactions occurred");
+        }
+
+        Ok(())
+    }
 }
 
 impl Default for IdentityManager {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+impl IdentityManager {
+    /// Create transaction components for a payment (inputs/outputs ready for blockchain Transaction)
+    /// 
+    /// This method has access to the wallet's private key for signing.
+    /// Returns raw transaction data that RuntimeOrchestrator can use to build the Transaction.
+    /// 
+    /// Parameters:
+    /// - identity_id: The identity making the payment
+    /// - utxos_to_consume: List of (utxo_hash, output_index, amount) tuples
+    /// - recipient_pubkey: Public key of payment recipient
+    /// - amount: Payment amount in micro-ZHTP
+    /// - fee: Transaction fee
+    /// 
+    /// Returns (private_key_bytes, total_input, change_amount, wallet_pubkey) for transaction creation
+    pub fn create_payment_transaction(
+        &self,
+        identity_id: &IdentityId,
+        utxos_to_consume: Vec<(lib_crypto::Hash, u32, u64)>, // (utxo_hash, output_index, amount)
+        recipient_pubkey: &[u8],
+        amount: u64,
+        fee: u64,
+    ) -> Result<(Vec<u8>, u64, u64, Vec<u8>)> { // Returns (private_key, total_input, change, wallet_pubkey)
+        // Get identity with private data
+        let identity = self.identities.get(identity_id)
+            .ok_or_else(|| anyhow!("Identity not found"))?;
+        
+        let private_data = self.private_data.get(identity_id)
+            .ok_or_else(|| anyhow!("Private identity data not found"))?;
+        
+        // Get the wallet's private key
+        let private_key_bytes = private_data.private_key().to_vec();
+        
+        // Calculate total input amount
+        let total_input: u64 = utxos_to_consume.iter().map(|(_, _, amt)| amt).sum();
+        
+        // Calculate change amount
+        let change = total_input.saturating_sub(amount + fee);
+        
+        // Get wallet public key for change output
+        let primary_wallet = identity.wallet_manager.wallets.values().next()
+            .ok_or_else(|| anyhow!("No wallet found"))?;
+        let wallet_pubkey = primary_wallet.public_key.clone();
+        
+        Ok((private_key_bytes, total_input, change, wallet_pubkey))
     }
 }

@@ -496,7 +496,7 @@ impl QuantumWallet {
         
         wallet.dao_properties = Some(dao_properties);
         
-        println!("✓ Created {} DAO wallet: {} (DID required)", 
+        println!(" Created {} DAO wallet: {} (DID required)", 
                 if is_nonprofit { "NonProfit" } else { "ForProfit" },
                 wallet.name);
         
@@ -775,7 +775,7 @@ impl QuantumWallet {
         if let Some(ref mut dao_props) = self.dao_properties {
             if !dao_props.authorized_controllers.contains(&new_controller) {
                 dao_props.authorized_controllers.push(new_controller);
-                println!("✓ Added new controller to DAO wallet: {}", self.name);
+                println!(" Added new controller to DAO wallet: {}", self.name);
             }
         }
         
@@ -795,7 +795,7 @@ impl QuantumWallet {
         if let Some(ref mut dao_props) = self.dao_properties {
             if !dao_props.authorized_dao_controllers.contains(&dao_controller) {
                 dao_props.authorized_dao_controllers.push(dao_controller);
-                println!("✓ Added DAO controller to DAO wallet: {}", self.name);
+                println!(" Added DAO controller to DAO wallet: {}", self.name);
             }
         }
         
@@ -820,7 +820,7 @@ impl QuantumWallet {
                 dao_props.authorized_dao_controllers.push(parent_dao_id.clone());
             }
             
-            println!("✓ Set parent DAO for {}: {}", self.name, hex::encode(&parent_dao_id.0[..8]));
+            println!(" Set parent DAO for {}: {}", self.name, hex::encode(&parent_dao_id.0[..8]));
         }
         
         Ok(())
@@ -839,7 +839,7 @@ impl QuantumWallet {
         if let Some(ref mut dao_props) = self.dao_properties {
             if !dao_props.child_dao_wallets.contains(&child_dao_id) {
                 dao_props.child_dao_wallets.push(child_dao_id.clone());
-                println!("✓ Added child DAO to {}: {}", self.name, hex::encode(&child_dao_id.0[..8]));
+                println!(" Added child DAO to {}: {}", self.name, hex::encode(&child_dao_id.0[..8]));
             }
         }
         

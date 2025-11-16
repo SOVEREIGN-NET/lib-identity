@@ -344,7 +344,7 @@ impl PasswordManager {
         self.password_hashes.insert(identity_id.clone(), password_hash);
 
         tracing::info!(
-            "🔐 Password set for identity {} (strength: {} - {})",
+            " Password set for identity {} (strength: {} - {})",
             hex::encode(&identity_id.0[..8]),
             strength.score,
             strength.level()
@@ -435,7 +435,7 @@ impl PasswordManager {
         self.set_password(identity_id, new_password, identity_seed)?;
 
         tracing::info!(
-            "🔄 Password changed for identity {}",
+            " Password changed for identity {}",
             hex::encode(&identity_id.0[..8])
         );
 

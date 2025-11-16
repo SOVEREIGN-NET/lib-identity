@@ -186,7 +186,7 @@ impl WalletPasswordManager {
         self.password_hashes.insert(wallet_id.clone(), password_hash);
 
         tracing::info!(
-            "🔐 Wallet password set for wallet {}",
+            " Wallet password set for wallet {}",
             hex::encode(&wallet_id.0[..8])
         );
 
@@ -219,7 +219,7 @@ impl WalletPasswordManager {
         self.set_wallet_password(wallet_id, new_password, wallet_seed)?;
 
         tracing::info!(
-            "🔄 Wallet password changed for wallet {}",
+            " Wallet password changed for wallet {}",
             hex::encode(&wallet_id.0[..8])
         );
 
@@ -286,12 +286,12 @@ impl WalletPasswordManager {
 
         if valid {
             tracing::debug!(
-                "✅ Wallet password validated for wallet {}",
+                " Wallet password validated for wallet {}",
                 hex::encode(&wallet_id.0[..8])
             );
         } else {
             tracing::warn!(
-                "❌ Wallet password validation failed for wallet {}",
+                " Wallet password validation failed for wallet {}",
                 hex::encode(&wallet_id.0[..8])
             );
         }

@@ -1,6 +1,6 @@
 # Password Security - Quick Reference
 
-## 🔐 DID Password Operations
+##  DID Password Operations
 
 ### Set Password (First Time)
 ```rust
@@ -96,17 +96,17 @@ for wallet_id in protected {
 
 ---
 
-## 📋 Password Requirements
+##  Password Requirements
 
 | Type | Minimum Length | Can Change | Can Remove |
 |------|----------------|------------|------------|
-| DID Password | 8 characters | ✅ Yes | ✅ Yes |
-| Wallet Password | 6 characters | ✅ Yes | ✅ Yes |
-| Master Seed Phrase | 20 words | ❌ Never | ❌ Never |
+| DID Password | 8 characters |  Yes |  Yes |
+| Wallet Password | 6 characters |  Yes |  Yes |
+| Master Seed Phrase | 20 words |  Never |  Never |
 
 ---
 
-## 🔑 Master Seed Phrase
+##  Master Seed Phrase
 
 ```rust
 // Seed phrase is provided during identity creation
@@ -130,25 +130,25 @@ identity_manager.set_identity_password(&identity_id, "newPass")?;
 
 ---
 
-## ⚠️ Security Best Practices
+##  Security Best Practices
 
 ### DO:
-✅ Write seed phrase on paper/metal  
-✅ Store in multiple secure offline locations  
-✅ Use strong, unique passwords (8+ characters)  
-✅ Change passwords if you suspect compromise  
-✅ Add wallet passwords to high-value wallets  
+ Write seed phrase on paper/metal  
+ Store in multiple secure offline locations  
+ Use strong, unique passwords (8+ characters)  
+ Change passwords if you suspect compromise  
+ Add wallet passwords to high-value wallets  
 
 ### DON'T:
-❌ Store seed phrase digitally (no photos, no cloud)  
-❌ Share seed phrase with anyone  
-❌ Use same password for DID and wallets  
-❌ Forget to backup seed phrase  
-❌ Rely only on passwords (seed phrase is ultimate backup)  
+ Store seed phrase digitally (no photos, no cloud)  
+ Share seed phrase with anyone  
+ Use same password for DID and wallets  
+ Forget to backup seed phrase  
+ Rely only on passwords (seed phrase is ultimate backup)  
 
 ---
 
-## 🎯 Common Use Cases
+##  Common Use Cases
 
 ### Protect Savings Wallet
 ```rust

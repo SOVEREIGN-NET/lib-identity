@@ -204,7 +204,7 @@ impl BiometricRecoveryManager {
             enrolled_templates.push(template_id);
         }
 
-        println!("✓ Enrolled {} biometric templates for identity {} (type: {:?})", 
+        println!(" Enrolled {} biometric templates for identity {} (type: {:?})", 
             enrolled_templates.len(), identity_id, enrollment.biometric_type);
         
         Ok(format!("enrollment_{}_{:?}", identity_id, enrollment.biometric_type))
@@ -327,7 +327,7 @@ impl BiometricRecoveryManager {
                     .as_secs());
             }
 
-            println!("✓ Identity {} recovered using biometric authentication (similarity: {:.3}, confidence: {:.3})", 
+            println!(" Identity {} recovered using biometric authentication (similarity: {:.3}, confidence: {:.3})", 
                 identity_id, match_result.similarity_score, match_result.confidence_level);
             
             Ok(identity_id)

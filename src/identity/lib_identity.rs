@@ -34,7 +34,7 @@ pub struct ZhtpIdentity {
     /// Private identity data reference
     pub private_data_id: Option<IdentityId>,
     /// Integrated quantum wallet system
-    pub wallet_manager: crate::wallets::WalletManager,
+    pub wallet_manager: crate::wallets::IdentityWallets,
     /// Identity attestations from trusted parties
     pub attestations: Vec<IdentityAttestation>,
     /// Creation timestamp
@@ -82,7 +82,7 @@ impl ZhtpIdentity {
             .as_secs();
         
         // Create integrated wallet manager
-        let wallet_manager = crate::wallets::WalletManager::new(id.clone());
+        let wallet_manager = crate::wallets::IdentityWallets::new(id.clone());
         
         Ok(ZhtpIdentity {
             id: id.clone(),

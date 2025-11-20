@@ -103,16 +103,16 @@ pub struct PasswordHash {
     pub created_at: u64,
 }
 
-/// Password manager for identities
+/// Password authentication for identities
 #[derive(Debug)]
-pub struct PasswordManager {
+pub struct IdentityPasswordAuth {
     /// Password hashes for imported identities only
     password_hashes: HashMap<IdentityId, PasswordHash>,
     /// Track which identities have been imported (from seed phrases)
     imported_identities: HashMap<IdentityId, u64>, // identity_id -> import_timestamp
 }
 
-impl PasswordManager {
+impl IdentityPasswordAuth {
     pub fn new() -> Self {
         Self {
             password_hashes: HashMap::new(),
@@ -480,7 +480,7 @@ fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
     result == 0
 }
 
-impl Default for PasswordManager {
+impl Default for IdentityPasswordAuth {
     fn default() -> Self {
         Self::new()
     }
@@ -493,26 +493,26 @@ mod tests {
 
     #[test]
     fn test_password_manager_import_required() {
-        let mut pm = PasswordManager::new();
+        let mut pm = IdentityPasswordAuth::new();
         let identity_id = Hash::from_bytes(&[1u8; 32]);
         let seed = [42u8; 32];
         
         // Should fail before import
-        assert!(pm.set_password(&identity_id, "password123", &seed).is_err());
+        assert!(pm.set_password(&identity_id, "Test@Pass123", &seed).is_err());
         
         // Mark as imported
         pm.mark_identity_imported(&identity_id);
         
         // Should work after import
-        assert!(pm.set_password(&identity_id, "password123", &seed).is_ok());
+        assert!(pm.set_password(&identity_id, "Test@Pass123", &seed).is_ok());
     }
 
     #[test]
     fn test_password_validation() {
-        let mut pm = PasswordManager::new();
+        let mut pm = IdentityPasswordAuth::new();
         let identity_id = Hash::from_bytes(&[2u8; 32]);
         let seed = [84u8; 32];
-        let password = "test_password_123";
+        let password = "Test@Password123";
         
         pm.mark_identity_imported(&identity_id);
         pm.set_password(&identity_id, password, &seed).unwrap();
@@ -522,7 +522,7 @@ mod tests {
         assert!(validation.valid);
         
         // Wrong password
-        let validation = pm.validate_password(&identity_id, "wrong", &seed).unwrap();
+        let validation = pm.validate_password(&identity_id, "Wrong@Pass123", &seed).unwrap();
         assert!(!validation.valid);
     }
 }

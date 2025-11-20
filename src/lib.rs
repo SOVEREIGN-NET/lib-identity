@@ -40,9 +40,9 @@ pub use types::IdentityVerification;
 pub use did::{
     DidDocument, ServiceEndpoint, VerificationMethod
 };
-pub use recovery::{RecoveryPhraseManager, RecoveryPhrase, PhraseGenerationOptions, EntropySource};
-pub use wallets::{WalletManager, QuantumWallet, WalletType, WalletId, WalletSummary};
-pub use auth::{PasswordManager, PasswordError, PasswordValidation, SessionToken};
+pub use recovery::{RecoveryPhrase, generate_recovery_phrase, validate_recovery_phrase, restore_identity_from_phrase, RecoveryKey};
+pub use wallets::{IdentityWallets, QuantumWallet, WalletType, WalletId, WalletSummary};
+pub use auth::{IdentityPasswordAuth, PasswordError, PasswordValidation, SessionToken};
 
 // External dependencies re-exports
 pub use lib_crypto as crypto;
@@ -161,7 +161,7 @@ pub async fn create_user_identity_with_wallet(
             user_name.clone(),
         )]),
         private_data_id: Some(identity_id.clone()),
-        wallet_manager: WalletManager::new(identity_id.clone()),
+        wallet_manager: IdentityWallets::new(identity_id.clone()),
         attestations: Vec::new(),
         created_at: std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)?
@@ -302,7 +302,7 @@ pub async fn create_node_device_identity(
             ("owner_identity".to_string(), hex::encode(&owner_identity_id.0)),
         ]),
         private_data_id: Some(node_identity_id.clone()),
-        wallet_manager: WalletManager::new(node_identity_id.clone()),  // Empty wallet manager
+        wallet_manager: IdentityWallets::new(node_identity_id.clone()),  // Empty wallet manager
         attestations: Vec::new(),
         created_at: std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)?

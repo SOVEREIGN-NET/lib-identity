@@ -386,20 +386,8 @@ impl QuantumWallet {
     ) -> Result<Self, anyhow::Error> {
         let mut wallet = Self::new(wallet_type, name, alias, owner_id, public_key);
         
-        // Generate 20-word seed phrase
-        let mut recovery_manager = crate::recovery::RecoveryPhraseManager::new();
-        let wallet_id_str = hex::encode(&wallet.id.0);
-        let wallet_descriptor = format!("wallet {}", &wallet_id_str[..16]); // Use first 16 chars for readability
-        
-        let seed_options = crate::recovery::PhraseGenerationOptions {
-            word_count: 20,
-            language: "english".to_string(),
-            entropy_source: crate::recovery::EntropySource::SystemRandom,
-            include_checksum: true,
-            custom_wordlist: None,
-        };
-        
-        let seed_phrase = recovery_manager.generate_recovery_phrase(&wallet_descriptor, seed_options).await?;
+        // Generate 24-word seed phrase using pure function
+        let seed_phrase = crate::recovery::generate_recovery_phrase(24)?;
         
         // Generate seed commitment for blockchain verification
         let seed_text = seed_phrase.words.join(" ");
@@ -407,6 +395,7 @@ impl QuantumWallet {
         let seed_commitment = format!("zhtp:wallet:commitment:{}", hex::encode(commitment_hash));
         
         // Encrypt seed phrase for storage
+        let wallet_id_str = hex::encode(&wallet.id.0);
         let encrypted_seed = Self::encrypt_seed_phrase(&seed_text, &wallet_id_str)?;
         
         wallet.seed_phrase = Some(seed_phrase);
@@ -448,20 +437,9 @@ impl QuantumWallet {
             public_key,
         );
         
-        // Generate 20-word seed phrase for the DAO wallet
-        let mut recovery_manager = crate::recovery::RecoveryPhraseManager::new();
+        // Generate 24-word seed phrase for the DAO wallet
+        let seed_phrase = crate::recovery::generate_recovery_phrase(24)?;
         let wallet_id_str = hex::encode(&wallet.id.0);
-        let dao_descriptor = format!("DAO wallet {}", &wallet_id_str[..16]);
-        
-        let seed_options = crate::recovery::PhraseGenerationOptions {
-            word_count: 20,
-            language: "english".to_string(),
-            entropy_source: crate::recovery::EntropySource::SystemRandom,
-            include_checksum: true,
-            custom_wordlist: None,
-        };
-        
-        let seed_phrase = recovery_manager.generate_recovery_phrase(&dao_descriptor, seed_options).await?;
         
         // Generate seed commitment
         let seed_text = seed_phrase.words.join(" ");

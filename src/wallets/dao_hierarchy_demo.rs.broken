@@ -5,7 +5,9 @@
 //! organizational structures.
 
 use crate::{
-    wallets::IdentityWallets,
+    wallets::{
+        manager_integration::IdentityWallets,
+    },
 };
 use lib_crypto::Hash;
 use anyhow::Result;
@@ -70,7 +72,7 @@ mod tests {
     #[test]
     fn test_nonprofit_cannot_own_forprofit() -> Result<()> {
         use crate::wallets::{
-
+            manager_integration::IdentityWallets,
             wallet_types::{WalletType, QuantumWallet, DaoWalletProperties, TransparencyLevel, DaoGovernanceSettings}
         };
         
@@ -168,13 +170,7 @@ mod tests {
                 total_funds_received: 0,
                 total_funds_spent: 0,
                 transaction_count: 0,
-            }),
-            derivation_index: None,
-            password_hash: None,
-            owned_content: Vec::new(),
-            total_storage_used: 0,
-            total_content_value: 0,
-        };
+            }),`n            derivation_index: None,`n            password_hash: None,`n            owned_content: Vec::new(),`n            total_storage_used: 0,`n            total_content_value: 0,`n        };
         
         // Add wallets to manager
         wallet_manager.wallets.insert(nonprofit_dao_id.clone(), nonprofit_wallet);
@@ -190,7 +186,7 @@ mod tests {
         match result {
             Err(e) => {
                 println!("Hierarchy error: {}", e);
-                assert!(format!("{}", e).contains("Non-profit DAO cannot own or control a for-profit DAO"));
+                assert!(e.to_string().contains("Non-profit DAO cannot own or control a for-profit DAO"));
             },
             Ok(_) => panic!("Expected hierarchy establishment to fail"),
         }
@@ -204,8 +200,8 @@ mod tests {
         
         match result {
             Err(e) => {
-                println!("Authorization error: {}", e);
-                assert!(format!("{}", e).contains("Non-profit DAO cannot be authorized as controller of a for-profit DAO"));
+                println!("Controller error: {}", e);
+                assert!(e.to_string().contains("Non-profit DAO cannot be authorized as controller of a for-profit DAO"));
             },
             Ok(_) => panic!("Expected authorization to fail"),
         }
@@ -218,7 +214,7 @@ mod tests {
     #[test]
     fn test_forprofit_can_own_nonprofit() -> Result<()> {
         use crate::wallets::{
-
+            manager_integration::IdentityWallets,
             wallet_types::{WalletType, QuantumWallet, DaoWalletProperties, TransparencyLevel, DaoGovernanceSettings}
         };
         
@@ -270,13 +266,7 @@ mod tests {
                 total_funds_received: 0,
                 total_funds_spent: 0,
                 transaction_count: 0,
-            }),
-            derivation_index: None,
-            password_hash: None,
-            owned_content: Vec::new(),
-            total_storage_used: 0,
-            total_content_value: 0,
-        };
+            }),`n            derivation_index: None,`n            password_hash: None,`n            owned_content: Vec::new(),`n            total_storage_used: 0,`n            total_content_value: 0,`n        };
         
         let nonprofit_wallet = QuantumWallet {
             id: nonprofit_dao_id.clone(),
@@ -316,13 +306,7 @@ mod tests {
                 total_funds_received: 0,
                 total_funds_spent: 0,
                 transaction_count: 0,
-            }),
-            derivation_index: None,
-            password_hash: None,
-            owned_content: Vec::new(),
-            total_storage_used: 0,
-            total_content_value: 0,
-        };
+            }),`n            derivation_index: None,`n            password_hash: None,`n            owned_content: Vec::new(),`n            total_storage_used: 0,`n            total_content_value: 0,`n        };
         
         // Add wallets to manager
         wallet_manager.wallets.insert(forprofit_dao_id.clone(), forprofit_wallet);
@@ -351,3 +335,4 @@ mod tests {
         Ok(())
     }
 }
+

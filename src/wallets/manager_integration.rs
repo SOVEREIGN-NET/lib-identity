@@ -1,17 +1,81 @@
 //! Wallet manager integration from the original identity.rs
 //! 
-//! This provides the WalletManager that was integrated into ZhtpIdentity
+//! This provides the IdentityWallets that was integrated into ZhtpIdentity
 
 use anyhow::{Result, anyhow};
 use std::collections::HashMap;
-use lib_crypto::Hash;
+use lib_crypto::{Hash, hash_blake3, derive_keys};
 use crate::types::IdentityId;
 use super::wallet_types::{WalletType, WalletId, QuantumWallet, WalletSummary};
-use super::wallet_password::{WalletPasswordManager, WalletPasswordError, WalletPasswordValidation};
+use zeroize::Zeroize;
+
+// ============================================================================
+// Wallet Password Types (merged from wallet_password.rs)
+// ============================================================================
+
+#[derive(Debug, Clone)]
+pub enum WalletPasswordError {
+    WalletNotFound,
+    InvalidPassword,
+    PasswordNotSet,
+    WeakPassword,
+    PasswordAlreadySet,
+    TooShort,
+    TooLong,
+    NoUppercase,
+    NoLowercase,
+    NoDigit,
+    ContainsSpaces,
+    CommonPassword,
+    SameAsOldPassword,
+}
+
+impl std::fmt::Display for WalletPasswordError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            WalletPasswordError::WalletNotFound => write!(f, "Wallet not found"),
+            WalletPasswordError::InvalidPassword => write!(f, "Invalid wallet password"),
+            WalletPasswordError::PasswordNotSet => write!(f, "No password set for this wallet"),
+            WalletPasswordError::WeakPassword => write!(f, "Wallet password does not meet security requirements"),
+            WalletPasswordError::PasswordAlreadySet => write!(f, "Wallet already has a password set"),
+            WalletPasswordError::TooShort => write!(f, "Wallet password too short - minimum 6 characters required"),
+            WalletPasswordError::TooLong => write!(f, "Wallet password too long - maximum 128 characters allowed"),
+            WalletPasswordError::NoUppercase => write!(f, "Wallet password must contain at least one uppercase letter (A-Z)"),
+            WalletPasswordError::NoLowercase => write!(f, "Wallet password must contain at least one lowercase letter (a-z)"),
+            WalletPasswordError::NoDigit => write!(f, "Wallet password must contain at least one digit (0-9)"),
+            WalletPasswordError::ContainsSpaces => write!(f, "Wallet password cannot contain spaces"),
+            WalletPasswordError::CommonPassword => write!(f, "Wallet password is too common - please choose a more unique password"),
+            WalletPasswordError::SameAsOldPassword => write!(f, "New wallet password must be different from old password"),
+        }
+    }
+}
+
+impl std::error::Error for WalletPasswordError {}
+
+/// Wallet password validation result
+#[derive(Debug, Clone)]
+pub struct WalletPasswordValidation {
+    pub valid: bool,
+    pub wallet_id: WalletId,
+    pub validated_at: u64,
+}
+
+/// Secure wallet password hash with salt
+#[derive(Debug, Clone, Zeroize)]
+#[zeroize(drop)]
+struct WalletPasswordHash {
+    hash: [u8; 32],
+    salt: [u8; 32],
+    created_at: u64,
+}
+
+// ============================================================================
+// IdentityWallets - Main wallet management structure
+// ============================================================================
 
 /// Integrated wallet manager for identity-based wallet management
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct WalletManager {
+pub struct IdentityWallets {
     /// Owner identity ID (optional for standalone wallet manager)
     pub owner_id: Option<IdentityId>,
     /// Map of wallet ID to wallet
@@ -22,12 +86,12 @@ pub struct WalletManager {
     pub total_balance: u64,
     /// Creation timestamp
     pub created_at: u64,
-    /// Optional password protection for individual wallets
+    /// Password hashes for wallets that have passwords enabled (merged from WalletPasswordManager)
     #[serde(skip)]
-    pub wallet_password_manager: WalletPasswordManager,
+    password_hashes: HashMap<WalletId, WalletPasswordHash>,
 }
 
-impl WalletManager {
+impl IdentityWallets {
     /// Create a new wallet manager for an identity
     pub fn new(owner_id: IdentityId) -> Self {
         let current_time = std::time::SystemTime::now()
@@ -41,19 +105,19 @@ impl WalletManager {
             alias_map: HashMap::new(),
             total_balance: 0,
             created_at: current_time,
-            wallet_password_manager: WalletPasswordManager::new(),
+            password_hashes: HashMap::new(),
         }
     }
     
     /// DEPRECATED: Standalone wallets are no longer allowed
     /// All wallets must be attached to an identity
-    /// Use WalletManager::new(identity_id) instead
+    /// Use IdentityWallets::new(identity_id) instead
     #[deprecated(
         since = "0.2.0",
-        note = "Wallets must be attached to an identity. Use WalletManager::new(identity_id) instead."
+        note = "Wallets must be attached to an identity. Use IdentityWallets::new(identity_id) instead."
     )]
     pub fn new_standalone() -> Self {
-        panic!("Standalone wallets are not allowed. All wallets must be attached to an identity. Use WalletManager::new(identity_id) instead.");
+        panic!("Standalone wallets are not allowed. All wallets must be attached to an identity. Use IdentityWallets::new(identity_id) instead.");
     }
     
     // Note: Basic wallet creation removed - use create_wallet_with_seed_phrase() for all wallets
@@ -793,7 +857,62 @@ impl WalletManager {
 
     // ============================================================================
     // WALLET PASSWORD PROTECTION - Optional security for individual wallets
+    // (Merged from WalletPasswordManager)
     // ============================================================================
+
+    /// Validate wallet password strength (slightly relaxed compared to DID passwords)
+    fn validate_password_strength(password: &str) -> Result<(), WalletPasswordError> {
+        let length = password.len();
+        
+        // Check length constraints (6 min for wallets vs 8 for DIDs)
+        if length < 6 {
+            return Err(WalletPasswordError::TooShort);
+        }
+        if length > 128 {
+            return Err(WalletPasswordError::TooLong);
+        }
+        
+        // Check for spaces
+        if password.contains(' ') {
+            return Err(WalletPasswordError::ContainsSpaces);
+        }
+        
+        // Check character requirements
+        let has_uppercase = password.chars().any(|c| c.is_uppercase());
+        let has_lowercase = password.chars().any(|c| c.is_lowercase());
+        let has_digit = password.chars().any(|c| c.is_numeric());
+        
+        if !has_uppercase {
+            return Err(WalletPasswordError::NoUppercase);
+        }
+        if !has_lowercase {
+            return Err(WalletPasswordError::NoLowercase);
+        }
+        if !has_digit {
+            return Err(WalletPasswordError::NoDigit);
+        }
+        
+        // Check against common passwords
+        if Self::is_common_password(password) {
+            return Err(WalletPasswordError::CommonPassword);
+        }
+        
+        Ok(())
+    }
+
+    /// Check if password is in common password list
+    fn is_common_password(password: &str) -> bool {
+        const COMMON_PASSWORDS: &[&str] = &[
+            "wallet", "Wallet1", "Wallet123", "123456", "wallet1",
+            "password", "Password1", "123456789", "qwerty", "abc123",
+            "savings", "Savings1", "money", "Money123", "cash",
+        ];
+        
+        let lower = password.to_lowercase();
+        COMMON_PASSWORDS.iter().any(|&common| {
+            password == common || lower == common.to_lowercase()
+        })
+    }
 
     /// Set password for a specific wallet (optional security layer)
     pub fn set_wallet_password(
@@ -801,19 +920,66 @@ impl WalletManager {
         wallet_id: &WalletId,
         password: &str,
     ) -> Result<(), WalletPasswordError> {
-        // Verify wallet exists
+        // Check if password already set
+        if self.password_hashes.contains_key(wallet_id) {
+            return Err(WalletPasswordError::PasswordAlreadySet);
+        }
+
+        // Verify wallet exists and get seed
         let wallet = self.wallets.get(wallet_id)
             .ok_or(WalletPasswordError::WalletNotFound)?;
         
-        // Get wallet seed from seed phrase or generate deterministic seed
         let wallet_seed = if let Some(seed_phrase) = &wallet.seed_phrase {
-            lib_crypto::hash_blake3(seed_phrase.to_string().as_bytes())
+            hash_blake3(seed_phrase.to_string().as_bytes())
         } else {
-            // Fallback: derive seed from wallet ID
-            lib_crypto::hash_blake3(&[wallet_id.0.as_slice(), b"wallet_seed"].concat())
+            hash_blake3(&[wallet_id.0.as_slice(), b"wallet_seed"].concat())
         };
+
+        // Validate password strength
+        Self::validate_password_strength(password)?;
+
+        // Generate salt using wallet seed for consistency
+        let salt_material = [
+            wallet_seed.as_slice(),
+            wallet_id.0.as_slice(),
+            b"wallet_password_salt"
+        ].concat();
+        let salt = hash_blake3(&salt_material);
+
+        // Derive password hash using HKDF
+        let password_key_material = [
+            password.as_bytes(),
+            salt.as_slice(),
+            wallet_seed.as_slice(),
+            wallet_id.0.as_slice()
+        ].concat();
         
-        self.wallet_password_manager.set_wallet_password(wallet_id, password, &wallet_seed)
+        let derived_key = derive_keys(
+            &password_key_material,
+            b"ZHTP_wallet_password_v1",
+            32
+        ).map_err(|_| WalletPasswordError::WeakPassword)?;
+
+        let mut hash = [0u8; 32];
+        hash.copy_from_slice(&derived_key[..32]);
+
+        let password_hash = WalletPasswordHash {
+            hash,
+            salt,
+            created_at: std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs(),
+        };
+
+        self.password_hashes.insert(wallet_id.clone(), password_hash);
+
+        tracing::info!(
+            " Wallet password set for wallet {}",
+            hex::encode(&wallet_id.0[..8])
+        );
+
+        Ok(())
     }
 
     /// Change password for a wallet (requires old password)
@@ -823,23 +989,29 @@ impl WalletManager {
         old_password: &str,
         new_password: &str,
     ) -> Result<(), WalletPasswordError> {
-        // Verify wallet exists
-        let wallet = self.wallets.get(wallet_id)
-            .ok_or(WalletPasswordError::WalletNotFound)?;
-        
-        // Get wallet seed
-        let wallet_seed = if let Some(seed_phrase) = &wallet.seed_phrase {
-            lib_crypto::hash_blake3(seed_phrase.to_string().as_bytes())
-        } else {
-            lib_crypto::hash_blake3(&[wallet_id.0.as_slice(), b"wallet_seed"].concat())
-        };
-        
-        self.wallet_password_manager.change_wallet_password(
-            wallet_id,
-            old_password,
-            new_password,
-            &wallet_seed
-        )
+        // Verify old password first
+        let validation = self.validate_wallet_password(wallet_id, old_password)?;
+        if !validation.valid {
+            return Err(WalletPasswordError::InvalidPassword);
+        }
+
+        // Check that new password is different from old
+        if old_password == new_password {
+            return Err(WalletPasswordError::SameAsOldPassword);
+        }
+
+        // Remove old password
+        self.password_hashes.remove(wallet_id);
+
+        // Set new password (this validates strength)
+        self.set_wallet_password(wallet_id, new_password)?;
+
+        tracing::info!(
+            " Wallet password changed for wallet {}",
+            hex::encode(&wallet_id.0[..8])
+        );
+
+        Ok(())
     }
 
     /// Remove password from a wallet (requires current password)
@@ -848,22 +1020,23 @@ impl WalletManager {
         wallet_id: &WalletId,
         current_password: &str,
     ) -> Result<(), WalletPasswordError> {
-        // Verify wallet exists
-        let wallet = self.wallets.get(wallet_id)
-            .ok_or(WalletPasswordError::WalletNotFound)?;
-        
-        // Get wallet seed
-        let wallet_seed = if let Some(seed_phrase) = &wallet.seed_phrase {
-            lib_crypto::hash_blake3(seed_phrase.to_string().as_bytes())
+        // Verify current password first
+        let validation = self.validate_wallet_password(wallet_id, current_password)?;
+        if !validation.valid {
+            return Err(WalletPasswordError::InvalidPassword);
+        }
+
+        // Remove password
+        if let Some(mut hash) = self.password_hashes.remove(wallet_id) {
+            hash.zeroize();
+            tracing::info!(
+                "🔓 Wallet password removed for wallet {}",
+                hex::encode(&wallet_id.0[..8])
+            );
+            Ok(())
         } else {
-            lib_crypto::hash_blake3(&[wallet_id.0.as_slice(), b"wallet_seed"].concat())
-        };
-        
-        self.wallet_password_manager.remove_wallet_password(
-            wallet_id,
-            current_password,
-            &wallet_seed
-        )
+            Err(WalletPasswordError::PasswordNotSet)
+        }
     }
 
     /// Validate wallet password (use before wallet operations)
@@ -872,32 +1045,88 @@ impl WalletManager {
         wallet_id: &WalletId,
         password: &str,
     ) -> Result<WalletPasswordValidation, WalletPasswordError> {
-        // Verify wallet exists
+        // Get stored password hash
+        let stored_hash = self.password_hashes.get(wallet_id)
+            .ok_or(WalletPasswordError::PasswordNotSet)?;
+
+        // Verify wallet exists and get seed
         let wallet = self.wallets.get(wallet_id)
             .ok_or(WalletPasswordError::WalletNotFound)?;
         
-        // Get wallet seed
         let wallet_seed = if let Some(seed_phrase) = &wallet.seed_phrase {
-            lib_crypto::hash_blake3(seed_phrase.to_string().as_bytes())
+            hash_blake3(seed_phrase.to_string().as_bytes())
         } else {
-            lib_crypto::hash_blake3(&[wallet_id.0.as_slice(), b"wallet_seed"].concat())
+            hash_blake3(&[wallet_id.0.as_slice(), b"wallet_seed"].concat())
         };
-        
-        self.wallet_password_manager.validate_password(wallet_id, password, &wallet_seed)
+
+        // Recreate password hash using same process
+        let password_key_material = [
+            password.as_bytes(),
+            &stored_hash.salt,
+            wallet_seed.as_slice(),
+            wallet_id.0.as_slice()
+        ].concat();
+
+        // Derive hash using same method
+        let derived_key = derive_keys(
+            &password_key_material,
+            b"ZHTP_wallet_password_v1",
+            32
+        ).map_err(|_| WalletPasswordError::InvalidPassword)?;
+
+        let mut test_hash = [0u8; 32];
+        test_hash.copy_from_slice(&derived_key[..32]);
+
+        // Constant-time comparison
+        let valid = constant_time_eq(&test_hash, &stored_hash.hash);
+
+        if valid {
+            tracing::debug!(
+                " Wallet password validated for wallet {}",
+                hex::encode(&wallet_id.0[..8])
+            );
+        } else {
+            tracing::warn!(
+                " Wallet password validation failed for wallet {}",
+                hex::encode(&wallet_id.0[..8])
+            );
+        }
+
+        Ok(WalletPasswordValidation {
+            valid,
+            wallet_id: wallet_id.clone(),
+            validated_at: std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs(),
+        })
     }
 
     /// Check if wallet has password protection enabled
     pub fn wallet_has_password(&self, wallet_id: &WalletId) -> bool {
-        self.wallet_password_manager.has_password(wallet_id)
+        self.password_hashes.contains_key(wallet_id)
     }
 
     /// Get list of all password-protected wallets
     pub fn list_password_protected_wallets(&self) -> Vec<&WalletId> {
-        self.wallet_password_manager.list_password_protected_wallets()
+        self.password_hashes.keys().collect()
     }
 
     /// Get count of password-protected wallets
     pub fn password_protected_wallet_count(&self) -> usize {
-        self.wallet_password_manager.password_protected_count()
+        self.password_hashes.len()
     }
+}
+
+/// Constant-time equality comparison to prevent timing attacks
+fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
+    if a.len() != b.len() {
+        return false;
+    }
+    
+    let mut result = 0u8;
+    for i in 0..a.len() {
+        result |= a[i] ^ b[i];
+    }
+    result == 0
 }

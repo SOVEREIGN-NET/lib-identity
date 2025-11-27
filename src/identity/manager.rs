@@ -119,6 +119,9 @@ impl IdentityManager {
         ).await?;
         
         // Create identity with citizen benefits
+        let mut metadata = HashMap::new();
+        metadata.insert("display_name".to_string(), display_name.clone());
+
         let identity = ZhtpIdentity {
             id: id.clone(),
             identity_type: IdentityType::Human,
@@ -128,7 +131,7 @@ impl IdentityManager {
             reputation: 500, // Citizens start with higher reputation
             age: None,
             access_level: AccessLevel::FullCitizen,
-            metadata: HashMap::new(),
+            metadata,
             private_data_id: Some(id.clone()),
             wallet_manager,
             attestations: Vec::new(),

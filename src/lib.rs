@@ -23,6 +23,7 @@ pub mod wallets;
 pub mod did;
 pub mod reputation;
 pub mod recovery;
+pub mod backup;
 pub mod privacy;
 pub mod cryptography;
 pub mod auth;
@@ -40,9 +41,18 @@ pub use types::IdentityVerification;
 pub use did::{
     DidDocument, ServiceEndpoint, VerificationMethod
 };
-pub use recovery::{RecoveryPhrase, generate_recovery_phrase, validate_recovery_phrase, restore_identity_from_phrase, RecoveryKey};
-pub use wallets::{IdentityWallets, QuantumWallet, WalletType, WalletId, WalletSummary};
-pub use auth::{IdentityPasswordAuth, PasswordError, PasswordValidation, SessionToken};
+// Recovery exports (combined from both branches)
+pub use recovery::{
+    RecoveryPhrase, RecoveryPhraseManager, PhraseGenerationOptions, EntropySource,
+    generate_recovery_phrase, validate_recovery_phrase, restore_identity_from_phrase,
+    RecoveryKey
+};
+// Backup exports (from feature/sid-integration)
+pub use backup::{BackupManager, BackupFormat, BackupVerification};
+// Wallet exports (combined)
+pub use wallets::{IdentityWallets, WalletManager, QuantumWallet, WalletType, WalletId, WalletSummary};
+// Auth exports (combined)
+pub use auth::{IdentityPasswordAuth, PasswordManager, PasswordError, PasswordValidation, SessionToken};
 
 // External dependencies re-exports
 pub use lib_crypto as crypto;

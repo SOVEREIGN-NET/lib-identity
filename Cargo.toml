@@ -24,6 +24,9 @@ sha2 = "0.10"
 sha3 = "0.10"
 hkdf = "0.12"
 names = { version = "0.14", default-features = false }
+aes-gcm = "0.10"
+argon2 = "0.5"
+base64 = "0.22"
 lib-crypto = { path = "../lib-crypto" }
 lib-proofs = { path = "../lib-proofs" }
 

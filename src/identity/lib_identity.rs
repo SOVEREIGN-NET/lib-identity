@@ -3,12 +3,17 @@
 use anyhow::{Result, anyhow};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use lib_crypto::Hash;
+use lib_crypto::{Hash, PublicKey, PrivateKey};
 use lib_proofs::ZeroKnowledgeProof;
 
-use crate::types::{IdentityId, IdentityType, CredentialType, IdentityProofParams, IdentityVerification, AccessLevel};
+use crate::types::{IdentityId, IdentityType, CredentialType, IdentityProofParams, IdentityVerification, AccessLevel, NodeId};
 use crate::credentials::ZkCredential;
 use crate::credentials::IdentityAttestation;
+
+/// Default function for wallet_master_seed
+fn default_wallet_seed() -> [u8; 64] {
+    [0u8; 64]
+}
 
 /// ZHTP Identity with zero-knowledge privacy and integrated quantum wallet management
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -17,16 +22,31 @@ pub struct ZhtpIdentity {
     pub id: IdentityId,
     /// Identity type
     pub identity_type: IdentityType,
-    /// Public key for verification
-    pub public_key: Vec<u8>,
+    /// Decentralized Identifier (DID)
+    #[serde(default)]
+    pub did: String,
+    /// Public key for verification (lib-crypto type)
+    pub public_key: PublicKey,
+    /// Private key (sensitive - not serialized)
+    #[serde(skip)]
+    pub private_key: Option<PrivateKey>,
+    /// Primary device NodeId
+    #[serde(default)]
+    pub node_id: NodeId,
+    /// Device name to NodeId mapping
+    #[serde(default)]
+    pub device_node_ids: HashMap<String, NodeId>,
+    /// Primary device name
+    #[serde(default)]
+    pub primary_device: String,
     /// Zero-knowledge proof of identity ownership
     pub ownership_proof: ZeroKnowledgeProof,
     /// Associated credentials
     pub credentials: HashMap<CredentialType, ZkCredential>,
     /// Reputation score (0-1000)
-    pub reputation: u32,
+    pub reputation: u64,
     /// Current age (for age verification)
-    pub age: Option<u8>,
+    pub age: Option<u64>,
     /// Access level (for citizen benefits)
     pub access_level: AccessLevel,
     /// Identity metadata
@@ -61,6 +81,28 @@ pub struct ZhtpIdentity {
     /// Master seed phrase for identity recovery (20 words)
     #[serde(skip)]
     pub master_seed_phrase: Option<crate::recovery::RecoveryPhrase>,
+    /// Zero-knowledge identity secret (32 bytes)
+    #[serde(skip)]
+    #[serde(default)]
+    pub zk_identity_secret: [u8; 32],
+    /// Zero-knowledge credential hash (32 bytes)
+    #[serde(default)]
+    pub zk_credential_hash: [u8; 32],
+    /// Wallet master seed (64 bytes - raw derived seed)
+    #[serde(skip, default = "default_wallet_seed")]
+    pub wallet_master_seed: [u8; 64],
+    /// DAO member identifier
+    #[serde(default)]
+    pub dao_member_id: String,
+    /// DAO voting power
+    #[serde(default)]
+    pub dao_voting_power: u64,
+    /// Citizenship verification status
+    #[serde(default)]
+    pub citizenship_verified: bool,
+    /// Jurisdiction (optional)
+    #[serde(default)]
+    pub jurisdiction: Option<String>,
 }
 
 impl PartialEq for ZhtpIdentity {
@@ -73,21 +115,36 @@ impl ZhtpIdentity {
     /// Create a new ZHTP identity with integrated quantum wallet system
     pub fn new(
         identity_type: IdentityType,
-        public_key: Vec<u8>,
+        did: String,
+        public_key: PublicKey,
+        private_key: Option<PrivateKey>,
+        device_name: String,
         ownership_proof: ZeroKnowledgeProof,
     ) -> Result<Self> {
-        let id = Hash::from_bytes(&public_key);
+        let id = Hash::from_bytes(&public_key.as_bytes());
         let current_time = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)?
             .as_secs();
-        
+
+        // Create primary device NodeId
+        let node_id = NodeId::from_did_device(&did, &device_name)?;
+
+        // Initialize device mapping with primary device
+        let mut device_node_ids = HashMap::new();
+        device_node_ids.insert(device_name.clone(), node_id);
+
         // Create integrated wallet manager
         let wallet_manager = crate::wallets::WalletManager::new(id.clone());
-        
+
         Ok(ZhtpIdentity {
             id: id.clone(),
             identity_type,
+            did,
             public_key,
+            private_key,
+            node_id,
+            device_node_ids,
+            primary_device: device_name,
             ownership_proof,
             credentials: HashMap::new(),
             reputation: 0,
@@ -107,12 +164,82 @@ impl ZhtpIdentity {
             next_wallet_index: 0,
             password_hash: None,  // Set via PasswordManager
             master_seed_phrase: None,  // Set during identity creation
+            zk_identity_secret: [0u8; 32],  // Set during identity creation
+            zk_credential_hash: [0u8; 32],
+            wallet_master_seed: [0u8; 64],  // Derived from identity secrets
+            dao_member_id: String::new(),
+            dao_voting_power: 0,
+            citizenship_verified: false,
+            jurisdiction: None,
         })
     }
     
+    /// Create identity from legacy Vec<u8> public_key (for migration)
+    /// This provides default values for new fields
+    pub fn from_legacy_fields(
+        id: IdentityId,
+        identity_type: IdentityType,
+        public_key_bytes: Vec<u8>,
+        ownership_proof: ZeroKnowledgeProof,
+        wallet_manager: crate::wallets::WalletManager,
+    ) -> Result<Self> {
+        // Convert Vec<u8> to PublicKey
+        let public_key = PublicKey::new(public_key_bytes.clone());
+
+        // Generate temporary DID from public key hash
+        let did = format!("did:zhtp:{}", hex::encode(&public_key_bytes[..16]));
+
+        // Create default NodeId (will be properly set later)
+        let node_id = NodeId::from_did_device(&did, "default")?;
+
+        let current_time = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)?
+            .as_secs();
+
+        let mut device_node_ids = HashMap::new();
+        device_node_ids.insert("default".to_string(), node_id);
+
+        Ok(ZhtpIdentity {
+            id: id.clone(),
+            identity_type,
+            did,
+            public_key,
+            private_key: None,
+            node_id,
+            device_node_ids,
+            primary_device: "default".to_string(),
+            ownership_proof,
+            credentials: HashMap::new(),
+            reputation: 0,
+            age: None,
+            access_level: AccessLevel::default(),
+            metadata: HashMap::new(),
+            private_data_id: Some(id),
+            wallet_manager,
+            attestations: Vec::new(),
+            created_at: current_time,
+            last_active: current_time,
+            recovery_keys: Vec::new(),
+            did_document_hash: None,
+            owner_identity_id: None,
+            reward_wallet_id: None,
+            encrypted_master_seed: None,
+            next_wallet_index: 0,
+            password_hash: None,
+            master_seed_phrase: None,
+            zk_identity_secret: [0u8; 32],
+            zk_credential_hash: [0u8; 32],
+            wallet_master_seed: [0u8; 64],
+            dao_member_id: String::new(),
+            dao_voting_power: 0,
+            citizenship_verified: false,
+            jurisdiction: None,
+        })
+    }
+
     // Note: Wallet creation now done directly through WalletManager for consistency
     // Use identity.wallet_manager.create_wallet_with_seed_phrase() for proper seed phrase support
-    
+
     /// Get wallet by alias
     pub fn get_wallet(&self, alias: &str) -> Option<&crate::wallets::QuantumWallet> {
         self.wallet_manager.get_wallet_by_alias(alias)

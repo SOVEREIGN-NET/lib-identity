@@ -338,6 +338,12 @@ impl std::fmt::Display for NodeId {
     }
 }
 
+impl Default for NodeId {
+    fn default() -> Self {
+        NodeId([0u8; 32])
+    }
+}
+
 // ============================================================================
 // TESTS - Written FIRST to define the contract (TDD)
 // ============================================================================

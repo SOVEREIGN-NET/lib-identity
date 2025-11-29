@@ -319,7 +319,7 @@ impl IdentityVerifier {
         let signature_valid = true; // Would verify actual signature here
 
         // Verify public key format and quantum resistance
-        let key_format_valid = identity.public_key.len() >= 32; // Minimum key size
+        let key_format_valid = identity.public_key.as_bytes().len() >= 32; // Minimum key size
         let quantum_resistant = true; // Would check if using post-quantum algorithms
 
         Ok(CryptoVerificationResult {

@@ -1,6 +1,6 @@
 # NodeId
 
-**Canonical 20-byte routing address for the Sovereign Network**
+**Canonical 32-byte routing address for the Sovereign Network**
 
 ---
 
@@ -18,7 +18,7 @@ This guarantees:
 
 * unique identity per device
 * stable identity over time
-* valid DHT address (20 bytes)
+* valid DHT address (32 bytes)
 * compatibility with decentralized routing, storage, and rewards
 
 NodeId underpins the **Sovereign Network's P2P layer**, enabling storage, routing, discovery, and ZHTP infrastructure rewards.
@@ -35,7 +35,7 @@ flowchart LR
     subgraph LibIdentity["lib_identity::types::NodeId"]
         A["from_did_device(did, device)"]
         B["Validate + normalize input"]
-        C["Hash(\"ZHTP_NODE_V2:\" + did + \":\" + device_norm)[0..20]"]
+        C["Hash(\"ZHTP_NODE_V2:\" + did + \":\" + device_norm)[0..32]"]
         D["NodeId([u8; 20])"]
     end
 
@@ -73,7 +73,7 @@ NodeId links to a DID but exposes **no personal information**.
 
 ### 3. Valid for decentralized routing
 
-20 bytes matches the standard size used by Kademlia/BitTorrent, enabling:
+32 bytes matches the standard size used by Kademlia/BitTorrent, enabling:
 
 * nearest neighbor search
 * routing table buckets
@@ -88,7 +88,7 @@ Prevents malformed devices or spoofed nodes from entering the network.
 Supports:
 
 * hex representation
-* 20-byte bytes
+* 32-byte bytes
 * 32-byte padded hashes
 * serde serialization
 
@@ -103,14 +103,14 @@ Below is the consolidated, authoritative spec for implementing or using `NodeId`
 ## 1. Data Type
 
 ```rust
-pub struct NodeId([u8; 20]);
+pub struct NodeId([u8; 32]);
 ```
 
 Properties:
 
-* 20-byte fixed binary value
+* 32-byte fixed binary value
 * `Serialize` / `Deserialize`
-* Implements `Display` → 40-char lowercase hex
+* Implements `Display` → 64-char lowercase hex
 
 ---
 
@@ -174,7 +174,7 @@ Canonical preimage:
 Hashing:
 
 ```
-bytes = blake3(preimage)[0..20]
+bytes = blake3(preimage)[0..32]
 NodeId(bytes)
 ```
 
@@ -205,7 +205,7 @@ fn from_hex(hex: &str) -> Result<NodeId>;
 
 **Rules:**
 
-* 40 hex chars exactly
+* 64 hex chars exactly
 * lowercase expected from `Display`
 * reject non-hex characters
 * reject wrong length
@@ -223,14 +223,20 @@ fn from_storage_hash(h: &Hash) -> NodeId;
 
 **Rules:**
 
-* first 20 bytes = NodeId
-* last 12 bytes = zero padding
-* round-trip must return original NodeId
+* `to_storage_hash()`:
+  - First 32 bytes = NodeId
+  - Last 12 bytes = zero padding
+* `from_storage_hash()`:
+  - Extracts first 32 bytes only
+  - **Padding bytes are ignored** (not validated)
+  - Allows compatibility with storage systems that don't preserve padding
+* Round-trip must return original NodeId
 
 Used for:
 
 * database keys
 * systems standardized on 32-byte hashes
+* backward compatibility with Hash-based storage
 
 ---
 
@@ -254,7 +260,7 @@ Used in routing, bucket placement, and peer selection.
 
 ```rust
 impl Display for NodeId {
-    // prints 40-char lowercase hex
+    // prints 64-char lowercase hex
 }
 ```
 

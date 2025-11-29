@@ -1,8 +1,8 @@
-//! NodeId - Canonical 20-byte DHT routing address
+//! NodeId - Canonical 32-byte DHT routing address
 //!
 //! NodeId is derived from a DID + device name combination, ensuring:
 //! - Deterministic generation (same inputs → same NodeId)
-//! - DHT compatibility (20 bytes matching future lib-dht UID)
+//! - DHT compatibility (32 bytes per ARCHITECTURE_CONSOLIDATION.md)
 //! - Multi-device support (one DID → many NodeIds)
 //! - Strict validation (prevents malformed identities)
 
@@ -10,15 +10,16 @@ use anyhow::{Result, anyhow};
 use serde::{Deserialize, Serialize};
 use lib_crypto::Hash;
 
-/// Canonical NodeId - 20-byte DHT routing address
+/// Canonical NodeId - 32-byte identity routing address
 ///
-/// Matches lib-dht UID size for perfect Phase 2 compatibility.
+/// Full Blake3 hash output per ARCHITECTURE_CONSOLIDATION.md specification.
 /// Generated deterministically from DID + device name.
 ///
 /// # Size Rationale
-/// - 20 bytes = 160 bits (standard DHT size)
-/// - Compatible with BitTorrent DHT, Ethereum, Kademlia
-/// - 2^160 ≈ 10^48 possible addresses
+/// - 32 bytes = 256 bits (full Blake3 output)
+/// - Per architecture spec: NodeId([u8; 32]) = Blake3("ZHTP_NODE_V2:" + DID + ":" + device)
+/// - 2^256 address space
+/// - Maintains cryptographic strength of Blake3
 ///
 /// # Examples
 /// ```
@@ -38,34 +39,34 @@ use lib_crypto::Hash;
 /// assert_eq!(node_id, node_id2);
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct NodeId([u8; 20]);
+pub struct NodeId([u8; 32]);
 
 impl NodeId {
-    /// Create NodeId from raw 20-byte array
+    /// Create NodeId from raw 32-byte array
     ///
     /// # Examples
     /// ```
     /// use lib_identity::types::NodeId;
     ///
-    /// let bytes = [0x42; 20];
+    /// let bytes = [0x42; 32];
     /// let node_id = NodeId::from_bytes(bytes);
     /// assert_eq!(node_id.as_bytes(), &bytes);
     /// ```
-    pub fn from_bytes(bytes: [u8; 20]) -> Self {
+    pub fn from_bytes(bytes: [u8; 32]) -> Self {
         Self(bytes)
     }
 
-    /// Get reference to underlying 20-byte array
+    /// Get reference to underlying 32-byte array
     ///
     /// # Examples
     /// ```
     /// use lib_identity::types::NodeId;
     ///
-    /// let bytes = [0x42; 20];
+    /// let bytes = [0x42; 32];
     /// let node_id = NodeId::from_bytes(bytes);
     /// assert_eq!(node_id.as_bytes(), &bytes);
     /// ```
-    pub fn as_bytes(&self) -> &[u8; 20] {
+    pub fn as_bytes(&self) -> &[u8; 32] {
         &self.0
     }
 
@@ -111,11 +112,8 @@ impl NodeId {
         let preimage = format!("ZHTP_NODE_V2:{}:{}", did, normalized_device);
         let hash = lib_crypto::hash_blake3(preimage.as_bytes());
 
-        // 4. Truncate to 20 bytes
-        let mut bytes = [0u8; 20];
-        bytes.copy_from_slice(&hash[0..20]);
-
-        Ok(Self(bytes))
+        // 4. Use full 32-byte Blake3 output (per ARCHITECTURE_CONSOLIDATION.md)
+        Ok(Self(hash))
     }
 
     /// Validate DID format (must start with "did:zhtp:")
@@ -191,16 +189,16 @@ impl NodeId {
         Ok(trimmed.to_lowercase())
     }
 
-    /// Convert NodeId to hex string (40 lowercase chars)
+    /// Convert NodeId to hex string (64 lowercase chars)
     ///
     /// # Examples
     /// ```
     /// use lib_identity::types::NodeId;
     ///
-    /// let bytes = [0x42; 20];
+    /// let bytes = [0x42; 32];
     /// let node_id = NodeId::from_bytes(bytes);
     /// let hex = node_id.to_hex();
-    /// assert_eq!(hex.len(), 40);
+    /// assert_eq!(hex.len(), 64);
     /// ```
     pub fn to_hex(&self) -> String {
         hex::encode(self.0)
@@ -208,7 +206,7 @@ impl NodeId {
 
     /// Create NodeId from hex string
     ///
-    /// Accepts exactly 40 hexadecimal characters (case-insensitive).
+    /// Accepts exactly 64 hexadecimal characters (case-insensitive).
     /// Does not accept `0x` prefix.
     ///
     /// # Examples
@@ -222,13 +220,13 @@ impl NodeId {
     ///
     /// # Errors
     /// Returns error if:
-    /// - Length is not exactly 40 characters
+    /// - Length is not exactly 64 characters
     /// - Contains non-hexadecimal characters
     pub fn from_hex(hex: &str) -> Result<Self> {
-        // Check length (must be exactly 40 chars = 20 bytes)
-        if hex.len() != 40 {
+        // Check length (must be exactly 64 chars = 32 bytes)
+        if hex.len() != 64 {
             return Err(anyhow!(
-                "Invalid hex length: expected 40 characters, got {}",
+                "Invalid hex length: expected 64 characters, got {}",
                 hex.len()
             ));
         }
@@ -238,7 +236,7 @@ impl NodeId {
             .map_err(|e| anyhow!("Invalid hex string: {}", e))?;
 
         // Convert to fixed-size array
-        let mut array = [0u8; 20];
+        let mut array = [0u8; 32];
         array.copy_from_slice(&bytes);
 
         Ok(Self(array))
@@ -259,18 +257,18 @@ impl NodeId {
     /// let distance = node1.xor_distance(&node2);
     /// assert_eq!(distance, node2.xor_distance(&node1)); // Symmetric
     /// ```
-    pub fn xor_distance(&self, other: &NodeId) -> [u8; 20] {
-        let mut result = [0u8; 20];
-        for i in 0..20 {
+    pub fn xor_distance(&self, other: &NodeId) -> [u8; 32] {
+        let mut result = [0u8; 32];
+        for i in 0..32 {
             result[i] = self.0[i] ^ other.0[i];
         }
         result
     }
 
-    /// Convert to 32-byte storage Hash (zero-padded)
+    /// Convert to 32-byte storage Hash
     ///
-    /// Pads the 20-byte NodeId to 32 bytes for compatibility with lib-crypto Hash.
-    /// Last 12 bytes are zero-padded.
+    /// Since NodeId is now 32 bytes (per ARCHITECTURE_CONSOLIDATION.md),
+    /// this is a direct conversion to Hash with no padding needed.
     ///
     /// # Examples
     /// ```
@@ -281,15 +279,12 @@ impl NodeId {
     /// assert_eq!(hash.as_bytes().len(), 32);
     /// ```
     pub fn to_storage_hash(&self) -> Hash {
-        let mut bytes = [0u8; 32];
-        bytes[0..20].copy_from_slice(&self.0);
-        // Last 12 bytes remain zero (padding)
-        Hash::from_bytes(&bytes)
+        Hash::from_bytes(&self.0)
     }
 
-    /// Create NodeId from 32-byte storage Hash (takes first 20 bytes)
+    /// Create NodeId from 32-byte storage Hash
     ///
-    /// Extracts the first 20 bytes from a Hash, ignoring padding.
+    /// Since NodeId is now 32 bytes, this is a direct conversion from Hash.
     ///
     /// # Examples
     /// ```
@@ -302,10 +297,39 @@ impl NodeId {
     /// assert_eq!(node, restored);
     /// ```
     pub fn from_storage_hash(hash: &Hash) -> Self {
-        let mut bytes = [0u8; 20];
-        bytes.copy_from_slice(&hash.as_bytes()[0..20]);
+        let mut bytes = [0u8; 32];
+        bytes.copy_from_slice(hash.as_bytes());
         Self(bytes)
     }
+
+    // ========================================================================
+    // Phase 2: DHT Integration (lib-dht)
+    // ========================================================================
+    //
+    // TODO: Phase 2 - Add when lib-dht is integrated
+    //
+    // The following methods will be added in Phase 2 when lib-dht exists:
+    //
+    // /// Convert NodeId to lib-dht UID (zero-copy)
+    // ///
+    // /// Phase 2: Maps directly to lib-dht's 32-byte UID type.
+    // /// This enables zero-copy conversion for DHT routing operations.
+    // pub fn to_dht_uid(&self) -> lib_dht::UID {
+    //     lib_dht::UID::from_bytes(self.0)
+    // }
+    //
+    // /// Create NodeId from lib-dht UID (zero-copy)
+    // ///
+    // /// Phase 2: Direct conversion from DHT's native UID type.
+    // pub fn from_dht_uid(uid: &lib_dht::UID) -> Self {
+    //     Self(*uid.as_bytes())
+    // }
+    //
+    // Note: lib-dht does not exist yet in the codebase. When it's added:
+    // 1. Uncomment these methods
+    // 2. Add lib-dht dependency to Cargo.toml
+    // 3. Add integration tests in lib-dht's test suite
+    // 4. Verify zero-copy conversion works as expected
 }
 
 impl std::fmt::Display for NodeId {
@@ -325,7 +349,7 @@ mod tests {
     // ------------------------------------------------------------------------
     // GIVEN valid DID and device name
     // WHEN NodeId::from_did_device() is called
-    // THEN a deterministic 20-byte NodeId is generated
+    // THEN a deterministic 32-byte NodeId is generated
     // ------------------------------------------------------------------------
 
     #[test]
@@ -337,10 +361,10 @@ mod tests {
         // WHEN: Creating NodeId
         let result = NodeId::from_did_device(did, device);
 
-        // THEN: Success with 20-byte NodeId
+        // THEN: Success with 32-byte NodeId
         assert!(result.is_ok(), "Should succeed with valid inputs");
         let node_id = result.unwrap();
-        assert_eq!(node_id.as_bytes().len(), 20, "NodeId must be 20 bytes");
+        assert_eq!(node_id.as_bytes().len(), 32, "NodeId must be 32 bytes");
     }
 
     #[test]
@@ -393,18 +417,24 @@ mod tests {
         let node = NodeId::from_did_device(did, device).unwrap();
 
         // THEN: Produces expected hex output (locks derivation algorithm)
-        // This is Blake3("ZHTP_NODE_V2:did:zhtp:0123456789abcdef:test-device")[0..20]
-        let expected_hex = node.to_hex(); // Will compute actual value
+        // This is Blake3("ZHTP_NODE_V2:did:zhtp:0123456789abcdef:test-device") - FULL 32 bytes
+        // Pre-computed golden vector to prevent algorithm drift
+        let expected_hex = "b5e3496b8b72b2fa70614d54b32dcb94e9e0fc4574f7ab7530a8af6a795bcafc";
+        let expected_bytes: [u8; 32] = [181, 227, 73, 107, 139, 114, 178, 250,
+                                         112, 97, 77, 84, 179, 45, 203, 148,
+                                         233, 224, 252, 69, 116, 247, 171, 117,
+                                         48, 168, 175, 106, 121, 91, 202, 252];
+
+        // Verify exact match (regression protection)
+        assert_eq!(node.to_hex(), expected_hex,
+            "Golden vector must match pre-computed Blake3 hash");
+        assert_eq!(node.as_bytes(), &expected_bytes,
+            "Golden vector bytes must match exactly");
 
         // Verify determinism by recreating
         let node2 = NodeId::from_did_device(did, device).unwrap();
-        assert_eq!(node.to_hex(), node2.to_hex(),
-            "Golden vector test: same inputs must always produce same output");
-
-        // Verify hex format (40 lowercase chars)
-        assert_eq!(expected_hex.len(), 40);
-        assert!(expected_hex.chars().all(|c| c.is_ascii_hexdigit() && !c.is_uppercase()),
-            "Hex output must be 40 lowercase hex digits");
+        assert_eq!(node, node2,
+            "Same inputs must always produce identical NodeId");
     }
 
     // ------------------------------------------------------------------------
@@ -621,15 +651,15 @@ mod tests {
     }
 
     #[test]
-    fn test_from_hex_valid_40_chars() {
-        // GIVEN: Valid 40-character hex string (20 bytes)
-        let hex = "0123456789abcdef0123456789abcdef01234567";
+    fn test_from_hex_valid_64_chars() {
+        // GIVEN: Valid 64-character hex string (32 bytes)
+        let hex = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
 
         // WHEN: Creating NodeId from hex
         let result = NodeId::from_hex(hex);
 
         // THEN: Success
-        assert!(result.is_ok(), "Should accept 40 hex chars");
+        assert!(result.is_ok(), "Should accept 64 hex chars");
     }
 
     #[test]
@@ -648,16 +678,16 @@ mod tests {
             // THEN: Error mentioning expected length
             assert!(result.is_err(), "Should fail with wrong length: {}", hex);
             let err = result.unwrap_err().to_string();
-            assert!(err.contains("40"), "Error should mention expected 40 chars");
+            assert!(err.contains("64"), "Error should mention expected 64 chars");
         }
     }
 
     #[test]
     fn test_from_hex_invalid_characters() {
-        // GIVEN: Invalid hex strings
+        // GIVEN: Invalid hex strings (64 chars with invalid characters)
         let invalid_hexes = vec![
-            "0123456789abcdefg123456789abcdef01234567", // 'g' not hex
-            "0123456789abcdef 123456789abcdef01234567", // space
+            "0123456789abcdefg123456789abcdef0123456789abcdef0123456789abcdef", // 'g' not hex
+            "0123456789abcdef 123456789abcdef0123456789abcdef0123456789abcdef", // space
         ];
 
         for hex in invalid_hexes {
@@ -671,8 +701,8 @@ mod tests {
 
     #[test]
     fn test_from_hex_canonical_form_lowercase() {
-        // GIVEN: Uppercase hex string
-        let uppercase = "0123456789ABCDEF0123456789ABCDEF01234567";
+        // GIVEN: Uppercase hex string (64 chars)
+        let uppercase = "0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF";
 
         // WHEN: Creating NodeId
         let result = NodeId::from_hex(uppercase);
@@ -728,7 +758,7 @@ mod tests {
         let distance = node.xor_distance(&node);
 
         // THEN: Distance is all zeros
-        assert_eq!(distance, [0u8; 20], "Distance to self must be zero");
+        assert_eq!(distance, [0u8; 32], "Distance to self must be zero");
     }
 
     #[test]
@@ -755,14 +785,14 @@ mod tests {
         let distance = node1.xor_distance(&node2);
 
         // THEN: Distance is non-zero
-        assert_ne!(distance, [0u8; 20], "Distance between different nodes must be non-zero");
+        assert_ne!(distance, [0u8; 32], "Distance between different nodes must be non-zero");
     }
 
     #[test]
     fn test_xor_distance_known_values() {
         // GIVEN: Two NodeIds with known byte values
-        let bytes1 = [0xAA; 20]; // All bits 10101010
-        let bytes2 = [0x55; 20]; // All bits 01010101
+        let bytes1 = [0xAA; 32]; // All bits 10101010
+        let bytes2 = [0x55; 32]; // All bits 01010101
         let node1 = NodeId::from_bytes(bytes1);
         let node2 = NodeId::from_bytes(bytes2);
 
@@ -770,7 +800,7 @@ mod tests {
         let distance = node1.xor_distance(&node2);
 
         // THEN: XOR of 0xAA and 0x55 is 0xFF (all bits 1)
-        let expected = [0xFF; 20];
+        let expected = [0xFF; 32];
         assert_eq!(distance, expected,
             "XOR distance must be bitwise XOR: 0xAA ^ 0x55 = 0xFF");
     }
@@ -778,7 +808,7 @@ mod tests {
     // ------------------------------------------------------------------------
     // GIVEN a NodeId
     // WHEN storage hash conversion is used
-    // THEN proper 20 ↔ 32 byte conversion works
+    // THEN proper 32-byte conversion works (no padding needed)
     // ------------------------------------------------------------------------
 
     #[test]
@@ -795,41 +825,31 @@ mod tests {
     }
 
     #[test]
-    fn test_to_storage_hash_pads_to_32_bytes() {
-        // GIVEN: A NodeId (20 bytes)
+    fn test_to_storage_hash_32_bytes() {
+        // GIVEN: A NodeId (32 bytes)
         let node = NodeId::from_did_device("did:zhtp:abc123", "laptop").unwrap();
 
         // WHEN: Converting to storage hash
         let hash = node.to_storage_hash();
 
-        // THEN: Hash is 32 bytes (padded)
+        // THEN: Hash is 32 bytes (same as NodeId, no padding)
         assert_eq!(hash.as_bytes().len(), 32, "Storage Hash must be 32 bytes");
 
-        // First 20 bytes match NodeId
-        assert_eq!(&hash.as_bytes()[0..20], node.as_bytes());
-
-        // Last 12 bytes are zero-padded
-        assert_eq!(&hash.as_bytes()[20..32], &[0u8; 12]);
+        // All 32 bytes match NodeId exactly
+        assert_eq!(hash.as_bytes(), node.as_bytes());
     }
 
     #[test]
-    fn test_from_storage_hash_ignores_padding() {
-        // GIVEN: A Hash with non-zero bytes in padding area
-        let mut hash_bytes = [0u8; 32];
-        hash_bytes[0..20].copy_from_slice(&[0xAB; 20]); // NodeId part
-        hash_bytes[20..32].copy_from_slice(&[0xFF; 12]); // Non-zero padding
-
+    fn test_from_storage_hash_exact_conversion() {
+        // GIVEN: A Hash with all 32 bytes set
+        let hash_bytes = [0xAB; 32];
         let hash = Hash::from_bytes(&hash_bytes);
 
         // WHEN: Converting to NodeId
         let node = NodeId::from_storage_hash(&hash);
 
-        // THEN: Only first 20 bytes used, padding ignored
-        assert_eq!(node.as_bytes(), &[0xAB; 20]);
-        assert_ne!(node.as_bytes(), &hash_bytes[0..20].iter()
-            .chain(&[0xFF; 12])
-            .copied()
-            .collect::<Vec<u8>>()[..]);
+        // THEN: All 32 bytes are preserved
+        assert_eq!(node.as_bytes(), &hash_bytes);
     }
 
     // ------------------------------------------------------------------------
@@ -846,8 +866,8 @@ mod tests {
         // WHEN: Using Display trait
         let display = format!("{}", node);
 
-        // THEN: Shows hex (40 chars)
-        assert_eq!(display.len(), 40, "Display should show 40 hex chars");
+        // THEN: Shows hex (64 chars)
+        assert_eq!(display.len(), 64, "Display should show 64 hex chars");
         assert_eq!(display, node.to_hex(), "Display should match to_hex()");
     }
 

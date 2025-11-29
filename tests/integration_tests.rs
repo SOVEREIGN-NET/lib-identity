@@ -398,6 +398,7 @@ async fn create_test_identity() -> identity::ZhtpIdentity {
         "test_device".to_string(),
         Some(30),
         Some("US".to_string()),
+        false,  // Not a verified citizen in test
         ownership_proof,
     ).expect("Failed to create test identity")
 }

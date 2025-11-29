@@ -609,6 +609,7 @@ mod tests {
             "test_device".to_string(),
             Some(30),
             Some("US".to_string()),
+            false,  // Not a verified citizen in test
             ownership_proof,
         ).expect("Failed to create test identity")
     }

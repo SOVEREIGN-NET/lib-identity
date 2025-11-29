@@ -10,17 +10,28 @@ use crate::types::{IdentityId, IdentityType, CredentialType, IdentityProofParams
 use crate::credentials::ZkCredential;
 use crate::credentials::IdentityAttestation;
 
-/// Default function for wallet_master_seed (only for deserialization)
-fn default_wallet_seed() -> [u8; 64] {
-    [0u8; 64]
-}
-
-/// Default function for zk_identity_secret (only for deserialization)
+/// SECURITY: Default functions for skipped deserialization fields
+/// These fields MUST be re-derived after deserialization using rederive_secrets()
 fn default_zk_secret() -> [u8; 32] {
     [0u8; 32]
 }
 
+fn default_zk_hash() -> [u8; 32] {
+    [0u8; 32]
+}
+
+fn default_wallet_seed() -> [u8; 64] {
+    [0u8; 64]
+}
+
 /// ZHTP Identity with zero-knowledge privacy and integrated quantum wallet management
+///
+/// ## Security Note on Deserialization
+/// The fields `zk_identity_secret`, `zk_credential_hash`, and `wallet_master_seed` are marked
+/// with `#[serde(skip)]` and CANNOT be deserialized. They will be zero-valued after
+/// deserialization and MUST be re-derived using `rederive_secrets()` with the private key.
+///
+/// **Always construct identities via `new()` or `from_legacy_fields()` for proper security.**
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ZhtpIdentity {
     /// Unique identity identifier  
@@ -87,14 +98,21 @@ pub struct ZhtpIdentity {
     #[serde(skip)]
     pub master_seed_phrase: Option<crate::recovery::RecoveryPhrase>,
     /// Zero-knowledge identity secret (32 bytes)
-    /// Derived from private key - never serialized for security
+    /// Derived from private key - never serialized, cannot be deserialized
+    /// SECURITY: Must construct via new() or from_legacy_fields() to derive properly
+    /// After deserialization, call rederive_secrets() to restore proper values
     #[serde(skip, default = "default_zk_secret")]
     pub zk_identity_secret: [u8; 32],
     /// Zero-knowledge credential hash (32 bytes)
-    /// Derived from secret + age + jurisdiction
+    /// Derived from secret + age + jurisdiction - skipped in serialization
+    /// SECURITY: Must construct via new() or from_legacy_fields() to derive properly
+    /// After deserialization, call rederive_secrets() to restore proper values
+    #[serde(skip, default = "default_zk_hash")]
     pub zk_credential_hash: [u8; 32],
     /// Wallet master seed (64 bytes - raw derived seed)
-    /// Derived from private key - never serialized for security
+    /// Derived from private key - never serialized, cannot be deserialized
+    /// SECURITY: Must construct via new() or from_legacy_fields() to derive properly
+    /// After deserialization, call rederive_secrets() to restore proper values
     #[serde(skip, default = "default_wallet_seed")]
     pub wallet_master_seed: [u8; 64],
     /// DAO member identifier
@@ -129,6 +147,7 @@ impl ZhtpIdentity {
         primary_device: String,
         age: Option<u64>,
         jurisdiction: Option<String>,
+        citizenship_verified: bool,
         ownership_proof: ZeroKnowledgeProof,
     ) -> Result<Self> {
         // 1. Derive DID from public key (canonical)
@@ -150,8 +169,12 @@ impl ZhtpIdentity {
         let wallet_master_seed = Self::derive_wallet_seed(&private_key.dilithium_sk)?;
         let dao_member_id = Self::derive_dao_member_id(&did)?;
 
-        // 6. Set initial DAO voting power (citizens = 1, verified humans = 10)
+        // 6. Set initial DAO voting power per spec:
+        // - Verified citizens: 10
+        // - Unverified humans: 1
+        // - Other types (Device, Organization, etc.): 0
         let dao_voting_power = match identity_type {
+            IdentityType::Human if citizenship_verified => 10,
             IdentityType::Human => 1,
             _ => 0,
         };
@@ -196,7 +219,7 @@ impl ZhtpIdentity {
             wallet_master_seed,
             dao_member_id,
             dao_voting_power,
-            citizenship_verified: false,
+            citizenship_verified,
             jurisdiction,
         })
     }
@@ -334,6 +357,28 @@ impl ZhtpIdentity {
             citizenship_verified: false,
             jurisdiction: None,
         })
+    }
+
+    /// Re-derive cryptographic secrets after deserialization
+    ///
+    /// SECURITY: This method MUST be called after deserializing a ZhtpIdentity from storage.
+    /// The secrets (zk_identity_secret, zk_credential_hash, wallet_master_seed) are never
+    /// serialized and will be zero-valued after deserialization.
+    ///
+    /// # Arguments
+    /// * `private_key` - The private key to derive secrets from
+    ///
+    /// # Returns
+    /// Ok(()) if secrets were successfully re-derived, Err if derivation failed
+    pub fn rederive_secrets(&mut self, private_key: &PrivateKey) -> Result<()> {
+        self.zk_identity_secret = Self::derive_zk_secret(&private_key.dilithium_sk)?;
+        self.zk_credential_hash = Self::derive_credential_hash(
+            &self.zk_identity_secret,
+            self.age,
+            self.jurisdiction.as_deref()
+        )?;
+        self.wallet_master_seed = Self::derive_wallet_seed(&private_key.dilithium_sk)?;
+        Ok(())
     }
 
     // Note: Wallet creation now done directly through WalletManager for consistency

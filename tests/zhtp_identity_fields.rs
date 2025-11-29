@@ -16,24 +16,30 @@ use std::collections::HashMap;
 //       dao_member_id, dao_voting_power, citizenship_verified, jurisdiction
 #[test]
 fn test_zhtp_identity_has_required_fields() {
-    let node_id = NodeId::from_did_device("did:zhtp:test123", "laptop")
-        .expect("Valid NodeId");
-
-    let mut device_node_ids = HashMap::new();
-    device_node_ids.insert("laptop".to_string(), node_id);
-
     let identity = create_test_identity();
 
-    // Verify all new fields are accessible
-    assert_eq!(identity.did, "did:zhtp:test123");
+    // Verify all new fields are accessible and properly derived
+    // DID should be derived from public key (not hardcoded)
+    assert!(identity.did.starts_with("did:zhtp:"));
+    assert_eq!(identity.did.len(), 73); // "did:zhtp:" + 64 hex chars
+
     assert_eq!(identity.primary_device, "laptop");
-    assert_eq!(identity.dao_voting_power, 100);
+
+    // DAO voting power should be 10 for verified citizens (from new() logic)
+    assert_eq!(identity.dao_voting_power, 10);
     assert_eq!(identity.citizenship_verified, true);
     assert_eq!(identity.jurisdiction, Some("US".to_string()));
     assert_eq!(identity.device_node_ids.len(), 1);
+
+    // Secrets should be derived (non-zero) from private key
     assert_eq!(identity.zk_identity_secret.len(), 32);
+    assert_ne!(identity.zk_identity_secret, [0u8; 32], "zk_identity_secret should not be zero");
+
     assert_eq!(identity.zk_credential_hash.len(), 32);
+    assert_ne!(identity.zk_credential_hash, [0u8; 32], "zk_credential_hash should not be zero");
+
     assert_eq!(identity.wallet_master_seed.len(), 64);
+    assert_ne!(identity.wallet_master_seed, [0u8; 64], "wallet_master_seed should not be zero");
 }
 
 // AC2: Correct types from lib-crypto
@@ -67,8 +73,8 @@ fn test_private_key_not_serialized() {
     assert!(!json.contains("private_key"),
             "private_key should be skipped in serialization");
 
-    // Verify did IS in JSON (sanity check)
-    assert!(json.contains("did:zhtp:test123"),
+    // Verify did IS in JSON (sanity check) - check for the prefix since DID is derived
+    assert!(json.contains("did:zhtp:"),
             "did should be present in serialization");
 }
 
@@ -180,55 +186,40 @@ fn test_citizenship_fields() {
     assert_eq!(identity.jurisdiction, None);
 }
 
-// Helper function to create test identity
+// Helper function to create test identity using proper new() constructor
+// This ensures all cryptographic fields are derived correctly per spec
 fn create_test_identity() -> ZhtpIdentity {
-    let node_id = NodeId::from_did_device("did:zhtp:test123", "laptop")
-        .expect("Valid NodeId");
+    // Use a real-ish keypair for testing (deterministic for repeatability)
+    let public_key = PublicKey::new(vec![42u8; 64]);
+    let private_key = PrivateKey {
+        dilithium_sk: vec![1u8; 32],
+        kyber_sk: vec![],
+        master_seed: vec![],
+    };
 
-    let mut device_node_ids = HashMap::new();
-    device_node_ids.insert("laptop".to_string(), node_id);
+    let ownership_proof = ZeroKnowledgeProof {
+        proof_system: "test".to_string(),
+        proof_data: vec![],
+        public_inputs: vec![],
+        verification_key: vec![],
+        plonky2_proof: None,
+        proof: vec![],
+    };
 
-    ZhtpIdentity {
-        id: lib_crypto::Hash::from_bytes(&[0u8; 32]),
-        identity_type: IdentityType::Human,
-        did: "did:zhtp:test123".to_string(),
-        public_key: PublicKey::new(vec![1u8; 64]),
-        private_key: None,
-        node_id,
-        device_node_ids,
-        primary_device: "laptop".to_string(),
-        zk_identity_secret: [0u8; 32],
-        zk_credential_hash: [0u8; 32],
-        wallet_master_seed: [0u8; 64],
-        dao_member_id: "dao_member_123".to_string(),
-        dao_voting_power: 100,
-        citizenship_verified: true,
-        jurisdiction: Some("US".to_string()),
-        age: Some(30u64),
-        reputation: 1000u64,
-        created_at: 0,
-        last_active: 0,
-        recovery_keys: vec![],
-        did_document_hash: None,
-        owner_identity_id: None,
-        reward_wallet_id: None,
-        encrypted_master_seed: None,
-        next_wallet_index: 0,
-        password_hash: None,
-        master_seed_phrase: None,
-        attestations: vec![],
-        wallet_manager: WalletManager::new(lib_crypto::Hash::from_bytes(&[0u8; 32])),
-        ownership_proof: ZeroKnowledgeProof {
-            proof_system: "test".to_string(),
-            proof_data: vec![],
-            public_inputs: vec![],
-            verification_key: vec![],
-            plonky2_proof: None,
-            proof: vec![],
-        },
-        access_level: AccessLevel::default(),
-        metadata: std::collections::HashMap::new(),
-        credentials: std::collections::HashMap::new(),
-        private_data_id: None,
-    }
+    // Use new() to get proper derivation of all fields
+    let mut identity = ZhtpIdentity::new(
+        IdentityType::Human,
+        public_key,
+        private_key,
+        "laptop".to_string(),
+        Some(30u64),
+        Some("US".to_string()),
+        true,  // Verified citizen for testing
+        ownership_proof,
+    ).expect("Failed to create test identity");
+
+    // Override reputation for testing (in real usage, this would be managed separately)
+    identity.reputation = 1000u64;
+
+    identity
 }

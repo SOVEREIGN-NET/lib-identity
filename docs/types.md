@@ -23,6 +23,48 @@ use lib_identity::types::IdentityId;
 let identity_id: IdentityId = "citizen_12345".to_string();
 ```
 
+### NodeId
+
+**NEW in Phase 1**
+
+```rust
+pub struct NodeId([u8; 20]);
+```
+
+Canonical 20-byte routing address for device-level identity in the Sovereign Network.
+
+**Purpose:**
+- Unique network identity per device (laptop, phone, server)
+- Deterministic derivation from DID + device name
+- DHT-compatible routing (Kademlia/BitTorrent standard)
+- Privacy-preserving (no personal data exposed)
+
+**Key Methods:**
+```rust
+use lib_identity::types::NodeId;
+
+// Create from DID + device
+let node_id = NodeId::from_did_device("did:zhtp:abc123", "laptop")?;
+
+// Hex conversion
+let hex = node_id.to_hex();  // 40 lowercase hex chars
+let restored = NodeId::from_hex(&hex)?;
+
+// DHT routing
+let distance = node1.xor_distance(&node2);
+
+// Storage compatibility (20 → 32 bytes)
+let hash = node_id.to_storage_hash();  // Pads to 32 bytes
+let node_id = NodeId::from_storage_hash(&hash);
+```
+
+**Validation:**
+- DID must start with `did:zhtp:`
+- Device name: 1-64 chars, matches `^[A-Za-z0-9._-]+$`
+- Device normalized to lowercase before hashing
+
+**See:** [Complete NodeId documentation](./node_id.md)
+
 ### CredentialType
 
 ```rust

@@ -28,15 +28,15 @@ let identity_id: IdentityId = "citizen_12345".to_string();
 **NEW in Phase 1**
 
 ```rust
-pub struct NodeId([u8; 20]);
+pub struct NodeId([u8; 32]);
 ```
 
-Canonical 20-byte routing address for device-level identity in the Sovereign Network.
+Canonical 32-byte routing address for device-level identity in the Sovereign Network.
 
 **Purpose:**
 - Unique network identity per device (laptop, phone, server)
 - Deterministic derivation from DID + device name
-- DHT-compatible routing (Kademlia/BitTorrent standard)
+- DHT-compatible routing (256-bit Kademlia address space)
 - Privacy-preserving (no personal data exposed)
 
 **Key Methods:**
@@ -47,14 +47,14 @@ use lib_identity::types::NodeId;
 let node_id = NodeId::from_did_device("did:zhtp:abc123", "laptop")?;
 
 // Hex conversion
-let hex = node_id.to_hex();  // 40 lowercase hex chars
+let hex = node_id.to_hex();  // 64 lowercase hex chars
 let restored = NodeId::from_hex(&hex)?;
 
 // DHT routing
 let distance = node1.xor_distance(&node2);
 
-// Storage compatibility (20 → 32 bytes)
-let hash = node_id.to_storage_hash();  // Pads to 32 bytes
+// Storage compatibility (direct 32-byte conversion)
+let hash = node_id.to_storage_hash();  // Direct conversion (no padding)
 let node_id = NodeId::from_storage_hash(&hash);
 ```
 

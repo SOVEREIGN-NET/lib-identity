@@ -21,7 +21,7 @@ pub type NodeId = Hash;  // Just a 32-byte canonical NodeId
 ### After (lib-identity)
 ```rust
 // lib-identity/src/types/node_id.rs
-pub struct NodeId([u8; 20]);
+pub struct NodeId([u8; 32]);
 
 impl NodeId {
     pub fn from_did_device(did: &str, device: &str) -> Result<Self>;

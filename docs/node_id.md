@@ -35,8 +35,8 @@ flowchart LR
     subgraph LibIdentity["lib_identity::types::NodeId"]
         A["from_did_device(did, device)"]
         B["Validate + normalize input"]
-        C["Hash(\"ZHTP_NODE_V2:\" + did + \":\" + device_norm)[0..32]"]
-        D["NodeId([u8; 20])"]
+        C["Hash(\"ZHTP_NODE_V2:\" + did + \":\" + device_norm) - Full 32 bytes"]
+        D["NodeId([u8; 32])"]
     end
 
     subgraph NetworkUsage["Where NodeId is used"]
@@ -188,8 +188,8 @@ NodeId(bytes)
 ## 3. Accessors
 
 ```rust
-fn as_bytes(&self) -> &[u8; 20];
-fn from_bytes(bytes: [u8; 20]) -> NodeId;
+fn as_bytes(&self) -> &[u8; 32];
+fn from_bytes(bytes: [u8; 32]) -> NodeId;
 ```
 
 Round-trip must preserve bit-exact identity.
@@ -243,7 +243,7 @@ Used for:
 ## 6. XOR Distance (DHT metric)
 
 ```rust
-fn xor_distance(&self, other: &NodeId) -> [u8; 20];
+fn xor_distance(&self, other: &NodeId) -> [u8; 32];
 ```
 
 Rules:

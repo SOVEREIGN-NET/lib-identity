@@ -684,17 +684,19 @@ mod tests {
 
     #[test]
     fn test_from_hex_invalid_characters() {
-        // GIVEN: Invalid hex strings (64 chars with invalid characters)
+        // GIVEN: Invalid hex strings (exactly 64 chars with invalid characters)
         let invalid_hexes = vec![
-            "0123456789abcdefg123456789abcdef0123456789abcdef0123456789abcdef", // 'g' not hex
-            "0123456789abcdef 123456789abcdef0123456789abcdef0123456789abcdef", // space
+            "0123456789abcdefg123456789abcdef0123456789abcdef0123456789abcdef", // 'g' not hex (pos 16)
+            "0123456789abcdef 123456789abcdef0123456789abcdef0123456789abcdef", // space (pos 16)
+            "zzzz456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef", // 'z' not hex (pos 0-3)
         ];
 
         for hex in invalid_hexes {
             // WHEN: Creating NodeId
             let result = NodeId::from_hex(hex);
 
-            // THEN: Error
+            // THEN: Error due to invalid characters (not length)
+            assert_eq!(hex.len(), 64, "Test string should be exactly 64 chars");
             assert!(result.is_err(), "Should fail with invalid hex: {}", hex);
         }
     }
@@ -733,14 +735,19 @@ mod tests {
 
     #[test]
     fn test_from_hex_rejects_odd_length() {
-        // GIVEN: Odd-length hex string (not divisible by 2)
-        let odd_hex = "0123456789abcdef0123456789abcdef0123456"; // 39 chars
+        // GIVEN: Odd-length hex strings (would cause decode errors if length wasn't checked)
+        let odd_hexes = vec![
+            "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcde",   // 63 chars (odd)
+            "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0", // 65 chars (odd)
+        ];
 
-        // WHEN: Creating NodeId
-        let result = NodeId::from_hex(odd_hex);
+        for odd_hex in odd_hexes {
+            // WHEN: Creating NodeId
+            let result = NodeId::from_hex(odd_hex);
 
-        // THEN: Should reject
-        assert!(result.is_err(), "Should reject odd-length hex");
+            // THEN: Should reject (caught by length check, which also prevents odd-length decode errors)
+            assert!(result.is_err(), "Should reject odd-length hex: {} chars", odd_hex.len());
+        }
     }
 
     // ------------------------------------------------------------------------

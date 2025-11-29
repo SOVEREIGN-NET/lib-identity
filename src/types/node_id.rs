@@ -686,9 +686,9 @@ mod tests {
     fn test_from_hex_invalid_characters() {
         // GIVEN: Invalid hex strings (exactly 64 chars with invalid characters)
         let invalid_hexes = vec![
-            "0123456789abcdefg123456789abcdef0123456789abcdef0123456789abcdef", // 'g' not hex (pos 16)
-            "0123456789abcdef 123456789abcdef0123456789abcdef0123456789abcdef", // space (pos 16)
-            "zzzz456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef", // 'z' not hex (pos 0-3)
+            "0123456789abcdeg0123456789abcdef0123456789abcdef0123456789abcdef", // 'g' not hex (pos 16, length 64)
+            "0123456789abcde 0123456789abcdef0123456789abcdef0123456789abcdef", // space (pos 16, length 64)
+            "zzzz456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef", // 'z' not hex (pos 0-3, length 64)
         ];
 
         for hex in invalid_hexes {

@@ -245,21 +245,66 @@ impl NodeId {
     }
 
     /// Calculate XOR distance to another NodeId (for Kademlia routing)
+    ///
+    /// Returns the bitwise XOR of two NodeIds, used as the distance metric
+    /// in Kademlia DHT routing. Distance is symmetric: `d(a,b) = d(b,a)`.
+    ///
+    /// # Examples
+    /// ```
+    /// use lib_identity::types::NodeId;
+    ///
+    /// let node1 = NodeId::from_did_device("did:zhtp:abc", "laptop").unwrap();
+    /// let node2 = NodeId::from_did_device("did:zhtp:def", "phone").unwrap();
+    ///
+    /// let distance = node1.xor_distance(&node2);
+    /// assert_eq!(distance, node2.xor_distance(&node1)); // Symmetric
+    /// ```
     pub fn xor_distance(&self, other: &NodeId) -> [u8; 20] {
-        // TODO: Will implement in next step
-        unimplemented!("XOR distance coming in next checkpoint")
+        let mut result = [0u8; 20];
+        for i in 0..20 {
+            result[i] = self.0[i] ^ other.0[i];
+        }
+        result
     }
 
     /// Convert to 32-byte storage Hash (zero-padded)
+    ///
+    /// Pads the 20-byte NodeId to 32 bytes for compatibility with lib-crypto Hash.
+    /// Last 12 bytes are zero-padded.
+    ///
+    /// # Examples
+    /// ```
+    /// use lib_identity::types::NodeId;
+    ///
+    /// let node = NodeId::from_did_device("did:zhtp:abc", "laptop").unwrap();
+    /// let hash = node.to_storage_hash();
+    /// assert_eq!(hash.as_bytes().len(), 32);
+    /// ```
     pub fn to_storage_hash(&self) -> Hash {
-        // TODO: Will implement in next step
-        unimplemented!("Storage hash conversion coming in next checkpoint")
+        let mut bytes = [0u8; 32];
+        bytes[0..20].copy_from_slice(&self.0);
+        // Last 12 bytes remain zero (padding)
+        Hash::from_bytes(&bytes)
     }
 
     /// Create NodeId from 32-byte storage Hash (takes first 20 bytes)
+    ///
+    /// Extracts the first 20 bytes from a Hash, ignoring padding.
+    ///
+    /// # Examples
+    /// ```
+    /// use lib_identity::types::NodeId;
+    /// use lib_crypto::Hash;
+    ///
+    /// let node = NodeId::from_did_device("did:zhtp:abc", "laptop").unwrap();
+    /// let hash = node.to_storage_hash();
+    /// let restored = NodeId::from_storage_hash(&hash);
+    /// assert_eq!(node, restored);
+    /// ```
     pub fn from_storage_hash(hash: &Hash) -> Self {
-        // TODO: Will implement in next step
-        unimplemented!("Storage hash conversion coming in next checkpoint")
+        let mut bytes = [0u8; 20];
+        bytes.copy_from_slice(&hash.as_bytes()[0..20]);
+        Self(bytes)
     }
 }
 

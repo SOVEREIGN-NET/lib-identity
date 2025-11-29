@@ -305,10 +305,8 @@ fn test_deterministic_derivation_golden_vector() {
     };
 
     // Expected outputs for all-zero keys (computed per spec, not via derive functions)
-    let expected_did_zeros = {
-        let hash = blake3::hash(&public_key_zeros.dilithium_pk);
-        format!("did:zhtp:{}", hash.to_hex())
-    };
+    // Per Issue #9: DID uses key_id directly, not hash of dilithium_pk
+    let expected_did_zeros = format!("did:zhtp:{}", hex::encode(public_key_zeros.key_id));
 
     let expected_zk_secret_zeros = {
         let mut hasher = blake3::Hasher::new();
@@ -365,7 +363,7 @@ fn test_deterministic_derivation_golden_vector() {
 
     // Validate DID derivation
     assert_eq!(identity_zeros.did, expected_did_zeros,
-        "DID should match blake3(dilithium_pk) for zero keys");
+        "DID should match hex(key_id) for zero keys");
     assert_eq!(identity_zeros.did.len(), 73, "DID should be 73 chars (did:zhtp: + 64 hex)");
 
     // Validate ZK secret derivation

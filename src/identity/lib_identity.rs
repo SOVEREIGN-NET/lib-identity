@@ -163,7 +163,7 @@ impl ZhtpIdentity {
         ownership_proof: ZeroKnowledgeProof,
     ) -> Result<Self> {
         // 1. Derive DID from public key (canonical)
-        let did = Self::generate_did(&public_key.dilithium_pk)?;
+        let did = Self::generate_did(&public_key)?;
 
         // 2. Derive ID from DID
         let id = Hash::from_bytes(&lib_crypto::hash_blake3(did.as_bytes()).to_vec());
@@ -177,7 +177,11 @@ impl ZhtpIdentity {
 
         // 5. Derive all secrets from master keypair (deterministic)
         let zk_identity_secret = Self::derive_zk_secret(&private_key.dilithium_sk)?;
-        let zk_credential_hash = Self::derive_credential_hash(&zk_identity_secret, age, jurisdiction.as_deref())?;
+        let zk_credential_hash = Self::derive_credential_hash(
+            &zk_identity_secret,
+            age.unwrap_or(25),
+            jurisdiction.as_deref().unwrap_or("US")
+        )?;
         let wallet_master_seed = Self::derive_wallet_seed(&private_key.dilithium_sk)?;
         let dao_member_id = Self::derive_dao_member_id(&did)?;
 
@@ -236,11 +240,10 @@ impl ZhtpIdentity {
         })
     }
 
-    /// Generate canonical DID from Dilithium public key
-    /// Per spec: "did:zhtp:[hex(blake3(dilithium_pk))]"
-    fn generate_did(dilithium_pk: &[u8]) -> Result<String> {
-        let hash = lib_crypto::hash_blake3(dilithium_pk);
-        Ok(format!("did:zhtp:{}", hex::encode(hash)))
+    /// Generate canonical DID from PublicKey key_id
+    /// Per Issue #9 spec: "did:zhtp:{hex(public_key.key_id)}"
+    fn generate_did(public_key: &PublicKey) -> Result<String> {
+        Ok(format!("did:zhtp:{}", hex::encode(public_key.key_id)))
     }
 
     /// Derive ZK identity secret from private key
@@ -250,19 +253,20 @@ impl ZhtpIdentity {
         Ok(hash)
     }
 
-    /// Derive credential hash from secret + age + jurisdiction
-    /// Per spec: Blake3(secret + age + jurisdiction)
+    /// Derive credential hash from ZK secret, age, and jurisdiction
+    /// Per Issue #9 spec: Blake3("ZHTP_CREDENTIAL_V1:" + secret + age + jurisdiction_code)
+    /// - age: Required age value (no default)
+    /// - jurisdiction: Required jurisdiction code (no default)
     fn derive_credential_hash(
         secret: &[u8; 32],
-        age: Option<u64>,
-        jurisdiction: Option<&str>,
+        age: u64,
+        jurisdiction: &str,
     ) -> Result<[u8; 32]> {
-        let age_val = age.unwrap_or(25);
-        let juris_code = Self::jurisdiction_to_code(jurisdiction.unwrap_or("US"));
+        let juris_code = Self::jurisdiction_to_code(jurisdiction);
         let hash = lib_crypto::hash_blake3(&[
             b"ZHTP_CREDENTIAL_V1:",
             secret.as_slice(),
-            &age_val.to_le_bytes(),
+            &age.to_le_bytes(),
             &juris_code.to_le_bytes(),
         ].concat());
         Ok(hash)
@@ -314,7 +318,7 @@ impl ZhtpIdentity {
         let public_key = PublicKey::new(public_key_bytes);
 
         // Derive DID from public key (canonical)
-        let did = Self::generate_did(&public_key.dilithium_pk)?;
+        let did = Self::generate_did(&public_key)?;
 
         // Generate primary NodeId from DID + device
         let node_id = NodeId::from_did_device(&did, &primary_device)?;
@@ -325,7 +329,7 @@ impl ZhtpIdentity {
 
         // Derive all secrets from master keypair (deterministic)
         let zk_identity_secret = Self::derive_zk_secret(&private_key.dilithium_sk)?;
-        let zk_credential_hash = Self::derive_credential_hash(&zk_identity_secret, None, None)?;
+        let zk_credential_hash = Self::derive_credential_hash(&zk_identity_secret, 25, "US")?;
         let wallet_master_seed = Self::derive_wallet_seed(&private_key.dilithium_sk)?;
         let dao_member_id = Self::derive_dao_member_id(&did)?;
 
@@ -414,8 +418,8 @@ impl ZhtpIdentity {
         self.zk_identity_secret = Self::derive_zk_secret(&private_key.dilithium_sk)?;
         self.zk_credential_hash = Self::derive_credential_hash(
             &self.zk_identity_secret,
-            self.age,
-            self.jurisdiction.as_deref()
+            self.age.unwrap_or(25),
+            self.jurisdiction.as_deref().unwrap_or("US")
         )?;
         self.wallet_master_seed = Self::derive_wallet_seed(&private_key.dilithium_sk)?;
         self.validate_secrets_derived()?; // Validate after re-derivation

@@ -240,6 +240,33 @@ impl ZhtpIdentity {
         })
     }
 
+    /// Create a new ZHTP identity with auto-generated PQC keypair
+    ///
+    /// This is a simplified constructor that generates a real post-quantum cryptographic
+    /// keypair internally and derives all identity fields deterministically.
+    ///
+    /// # Arguments
+    /// * `identity_type` - Type of identity (Human, Organization, etc.)
+    /// * `age` - Optional age for credential derivation (defaults to 25)
+    /// * `jurisdiction` - Optional jurisdiction code (defaults to "US")
+    /// * `primary_device` - Primary device identifier
+    ///
+    /// # Returns
+    /// Fully initialized ZhtpIdentity with real PQC keypair and all derived fields
+    pub fn new_unified(
+        identity_type: IdentityType,
+        age: Option<u64>,
+        jurisdiction: Option<String>,
+        primary_device: &str,
+    ) -> Result<Self> {
+        // Step 1: Generate real PQC keypair using lib-crypto
+        let keypair = lib_crypto::KeyPair::generate()
+            .map_err(|e| anyhow!("Failed to generate PQC keypair: {}", e))?;
+
+        // TODO: Steps 2-13 will be implemented in next block
+        todo!("Complete implementation of steps 2-13")
+    }
+
     /// Generate canonical DID from PublicKey key_id
     /// Per Issue #9 spec: "did:zhtp:{hex(public_key.key_id)}"
     fn generate_did(public_key: &PublicKey) -> Result<String> {

@@ -101,8 +101,94 @@ impl NodeId {
     /// assert!(NodeId::from_did_device("invalid", "laptop").is_err());
     /// ```
     pub fn from_did_device(did: &str, device: &str) -> Result<Self> {
-        // TODO: Will implement validation in next step
-        unimplemented!("Validation logic coming in next checkpoint")
+        // 1. Validate DID
+        Self::validate_did(did)?;
+
+        // 2. Normalize and validate device name
+        let normalized_device = Self::normalize_and_validate_device(device)?;
+
+        // 3. Derive NodeId using Blake3
+        let preimage = format!("ZHTP_NODE_V2:{}:{}", did, normalized_device);
+        let hash = lib_crypto::hash_blake3(preimage.as_bytes());
+
+        // 4. Truncate to 20 bytes
+        let mut bytes = [0u8; 20];
+        bytes.copy_from_slice(&hash[0..20]);
+
+        Ok(Self(bytes))
+    }
+
+    /// Validate DID format (must start with "did:zhtp:")
+    fn validate_did(did: &str) -> Result<()> {
+        // Check non-empty
+        if did.is_empty() {
+            return Err(anyhow!("DID cannot be empty"));
+        }
+
+        // Check reasonable length (max 256 characters)
+        if did.len() > 256 {
+            return Err(anyhow!("DID too long: {} characters (max 256)", did.len()));
+        }
+
+        // Check prefix
+        if !did.starts_with("did:zhtp:") {
+            return Err(anyhow!(
+                "Invalid DID format: must start with 'did:zhtp:', got '{}'",
+                did
+            ));
+        }
+
+        // Check that there's content after prefix
+        let id_part = &did[9..]; // Skip "did:zhtp:"
+        if id_part.is_empty() {
+            return Err(anyhow!("DID must have an identifier after 'did:zhtp:'"));
+        }
+
+        // Check for invalid characters (whitespace, special chars)
+        if id_part.contains(char::is_whitespace) {
+            return Err(anyhow!("DID identifier cannot contain whitespace"));
+        }
+
+        // Check for common invalid characters
+        if id_part.chars().any(|c| "!@#$%^&*()+=[]{}|\\;:'\",<>?/".contains(c)) {
+            return Err(anyhow!("DID identifier contains invalid special characters"));
+        }
+
+        Ok(())
+    }
+
+    /// Normalize and validate device name
+    ///
+    /// Returns normalized device name (trimmed + lowercased)
+    fn normalize_and_validate_device(device: &str) -> Result<String> {
+        // Trim whitespace
+        let trimmed = device.trim();
+
+        // Check non-empty after trim
+        if trimmed.is_empty() {
+            return Err(anyhow!(
+                "Device name cannot be empty or whitespace-only"
+            ));
+        }
+
+        // Check length (1-64 chars)
+        if trimmed.len() > 64 {
+            return Err(anyhow!(
+                "Device name must be 1-64 characters, got {}",
+                trimmed.len()
+            ));
+        }
+
+        // Validate characters: a-z A-Z 0-9 . _ -
+        if !trimmed.chars().all(|c| c.is_ascii_alphanumeric() || c == '.' || c == '_' || c == '-') {
+            return Err(anyhow!(
+                "Device name must match ^[A-Za-z0-9._-]+$, got '{}'",
+                trimmed
+            ));
+        }
+
+        // Normalize to lowercase
+        Ok(trimmed.to_lowercase())
     }
 
     /// Convert NodeId to hex string (40 lowercase chars)
@@ -294,18 +380,17 @@ mod tests {
     fn test_from_did_device_invalid_did_malformed() {
         // GIVEN: Malformed DIDs (various invalid formats)
         let device = "laptop";
-        let malformed_dids = vec![
-            "did:zhtp:",                    // Missing ID part
-            "did:zhtp: abc",                // Whitespace in ID
-            "did:zhtp:ABC",                 // Uppercase (may want lowercase-only)
-            "did:zhtp:abc def",             // Space in ID
-            "did:zhtp:abc!@#",              // Special chars in ID
-            "did:zhtp:".to_string() + &"a".repeat(500), // Extremely long ID
+        let malformed_dids: Vec<String> = vec![
+            "did:zhtp:".to_string(),                    // Missing ID part
+            "did:zhtp: abc".to_string(),                // Whitespace in ID
+            "did:zhtp:abc def".to_string(),             // Space in ID
+            "did:zhtp:abc!@#".to_string(),              // Special chars in ID
+            format!("did:zhtp:{}", "a".repeat(500)),    // Extremely long ID
         ];
 
-        for invalid_did in malformed_dids {
+        for invalid_did in &malformed_dids {
             // WHEN: Creating NodeId
-            let result = NodeId::from_did_device(&invalid_did, device);
+            let result = NodeId::from_did_device(invalid_did, device);
 
             // THEN: Error
             assert!(result.is_err(), "Should fail with malformed DID: {}", invalid_did);

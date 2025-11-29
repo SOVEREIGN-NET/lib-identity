@@ -292,11 +292,11 @@ pub async fn create_node_identity_with_wallet(
 /// This showcases advanced DAO-to-DAO ownership and control structures
 pub async fn demonstrate_hierarchical_dao_system() -> Result<String> {
     use crate::wallets::dao_hierarchy_demo;
-    
+
     tracing::info!(" Starting hierarchical DAO system demonstration");
-    
+
     dao_hierarchy_demo::demonstrate_dao_hierarchy()?;
-    
+
     Ok("Hierarchical DAO system demonstration completed successfully. Check logs for detailed output.".to_string())
 }
 

@@ -12,14 +12,34 @@ use crate::credentials::IdentityAttestation;
 
 /// ZHTP Identity with zero-knowledge privacy and integrated quantum wallet management
 ///
-/// ## Security Note on Deserialization
-/// The fields `zk_identity_secret`, `zk_credential_hash`, and `wallet_master_seed` are marked
-/// with `#[serde(skip)]` and will be ZERO after deserialization.
+/// ## Security-Critical Deserialization Requirements
 ///
-/// **CRITICAL**: After deserialization, you MUST call `rederive_secrets(private_key)` before
-/// using the identity, or call `validate_secrets_derived()` to ensure secrets are present.
+/// **DANGER**: Direct use of `serde_json::from_str()` or `Deserialize` produces identities
+/// with ZERO-VALUED cryptographic secrets. Using such identities without re-derivation is a
+/// CRITICAL SECURITY VULNERABILITY.
 ///
-/// **Recommended**: Always construct identities via `new()` or `from_legacy_fields()` for proper security.
+/// ### Safe Deserialization (REQUIRED)
+/// ```ignore
+/// // ✓ SAFE: Use from_serialized() which enforces re-derivation
+/// let identity = ZhtpIdentity::from_serialized(&json_data, &private_key)?;
+/// ```
+///
+/// ### Unsafe Deserialization (NOT RECOMMENDED)
+/// ```ignore
+/// // ✗ UNSAFE: Secrets will be zero - must manually call rederive_secrets()
+/// let mut identity: ZhtpIdentity = serde_json::from_str(&json_data)?;
+/// identity.rederive_secrets(&private_key)?;  // MUST call this!
+/// identity.validate_secrets_derived()?;      // Verify secrets are valid
+/// ```
+///
+/// ### Construction (Preferred)
+/// Always prefer `new()` or `from_legacy_fields()` which properly derive all secrets:
+/// ```ignore
+/// let identity = ZhtpIdentity::new(
+///     identity_type, public_key, private_key,
+///     primary_device, age, jurisdiction, citizenship_verified, ownership_proof
+/// )?;
+/// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ZhtpIdentity {
     /// Unique identity identifier  
@@ -389,7 +409,35 @@ impl ZhtpIdentity {
             self.jurisdiction.as_deref()
         )?;
         self.wallet_master_seed = Self::derive_wallet_seed(&private_key.dilithium_sk)?;
+        self.validate_secrets_derived()?; // Validate after re-derivation
         Ok(())
+    }
+
+    /// Safe deserialization helper that requires re-derivation
+    ///
+    /// Use this instead of direct deserialization to ensure secrets are properly derived.
+    ///
+    /// # Arguments
+    /// * `data` - Serialized identity data (JSON string)
+    /// * `private_key` - Private key to derive secrets from
+    ///
+    /// # Returns
+    /// Ok(identity) with properly derived secrets, or Err if deserialization/derivation failed
+    ///
+    /// # Example
+    /// ```ignore
+    /// let json = serde_json::to_string(&identity)?;
+    /// // Later...
+    /// let restored = ZhtpIdentity::from_serialized(&json, &private_key)?;
+    /// ```
+    pub fn from_serialized(data: &str, private_key: &PrivateKey) -> Result<Self> {
+        let mut identity: ZhtpIdentity = serde_json::from_str(data)
+            .map_err(|e| anyhow!("Failed to deserialize identity: {}", e))?;
+
+        // SECURITY: Automatically re-derive secrets after deserialization
+        identity.rederive_secrets(private_key)?;
+
+        Ok(identity)
     }
 
     // Note: Wallet creation now done directly through WalletManager for consistency

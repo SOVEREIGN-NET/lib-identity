@@ -6,6 +6,7 @@ use lib_identity::types::{IdentityType, NodeId, IdentityId, AccessLevel};
 use lib_identity::wallets::WalletManager;
 use lib_crypto::{PublicKey, PrivateKey};
 use lib_proofs::ZeroKnowledgeProof;
+use blake3;
 use std::collections::HashMap;
 
 // AC1: New fields added to ZhtpIdentity
@@ -240,7 +241,7 @@ fn test_secrets_validation() {
     assert!(identity.validate_secrets_derived().is_ok(), "Validation should pass for derived secrets");
 }
 
-// SECURITY TEST: Deserialization produces zero secrets that must be re-derived
+// SECURITY TEST: Direct deserialization is blocked, must use from_serialized
 #[test]
 fn test_deserialization_requires_rederive() {
     use serde_json;
@@ -251,50 +252,38 @@ fn test_deserialization_requires_rederive() {
     // Serialize
     let json = serde_json::to_string(&identity).expect("Serialization should succeed");
 
-    // UNSAFE PATH: Direct deserialization (demonstrates the security risk)
-    let mut deserialized_unsafe: ZhtpIdentity = serde_json::from_str(&json)
-        .expect("Deserialization should succeed");
+    // BLOCKED: Direct deserialization is now forbidden
+    let deserialization_result: Result<ZhtpIdentity, _> = serde_json::from_str(&json);
+    assert!(deserialization_result.is_err(),
+        "Direct deserialization should be forbidden");
+    assert!(deserialization_result.unwrap_err().to_string().contains("forbidden"),
+        "Error message should indicate deserialization is forbidden");
 
-    // SECURITY: Secrets should be zero after deserialization
-    assert!(!deserialized_unsafe.is_secrets_derived(),
-        "Secrets should be zero after direct deserialization");
-    assert!(deserialized_unsafe.validate_secrets_derived().is_err(),
-        "Validation should fail for zero secrets");
-
-    // Manual re-derivation (required if using direct deserialization)
+    // SAFE PATH: Using from_serialized helper (enforces re-derivation)
     let private_key = PrivateKey {
         dilithium_sk: vec![1u8; 2528],
         kyber_sk: vec![],
         master_seed: vec![],
     };
-    deserialized_unsafe.rederive_secrets(&private_key)
-        .expect("Rederivation should succeed");
 
-    // Now secrets should be valid
-    assert!(deserialized_unsafe.is_secrets_derived(),
-        "Secrets should be derived after rederive_secrets()");
-    assert!(deserialized_unsafe.validate_secrets_derived().is_ok(),
-        "Validation should pass after rederivation");
-
-    // SAFE PATH: Using from_serialized helper (enforces re-derivation)
-    let deserialized_safe = ZhtpIdentity::from_serialized(&json, &private_key)
+    let deserialized = ZhtpIdentity::from_serialized(&json, &private_key)
         .expect("Safe deserialization should succeed");
 
-    // Secrets should already be derived
-    assert!(deserialized_safe.is_secrets_derived(),
+    // Secrets should be properly derived via new()
+    assert!(deserialized.is_secrets_derived(),
         "Secrets should be derived immediately with from_serialized()");
-    assert!(deserialized_safe.validate_secrets_derived().is_ok(),
+    assert!(deserialized.validate_secrets_derived().is_ok(),
         "Validation should pass for from_serialized()");
 
-    // Verify both paths produce identical results
-    assert_eq!(deserialized_unsafe.did, deserialized_safe.did,
-        "Both paths should produce same DID");
-    assert_eq!(deserialized_unsafe.zk_identity_secret, deserialized_safe.zk_identity_secret,
-        "Both paths should produce same ZK secret");
-    assert_eq!(deserialized_unsafe.zk_credential_hash, deserialized_safe.zk_credential_hash,
-        "Both paths should produce same credential hash");
-    assert_eq!(deserialized_unsafe.wallet_master_seed, deserialized_safe.wallet_master_seed,
-        "Both paths should produce same wallet seed");
+    // Verify derivation matches original
+    assert_eq!(deserialized.did, identity.did,
+        "DID should match original");
+    assert_eq!(deserialized.zk_identity_secret, identity.zk_identity_secret,
+        "ZK secret should match original");
+    assert_eq!(deserialized.zk_credential_hash, identity.zk_credential_hash,
+        "Credential hash should match original");
+    assert_eq!(deserialized.wallet_master_seed, identity.wallet_master_seed,
+        "Wallet seed should match original");
 }
 
 // GOLDEN VECTOR TEST: Validate deterministic derivation with expected outputs
@@ -315,18 +304,43 @@ fn test_deterministic_derivation_golden_vector() {
         master_seed: vec![],
     };
 
-    // Expected outputs for all-zero keys (precomputed with blake3)
-    // DID = "did:zhtp:" + hex(blake3(vec![0u8; 1312]))
+    // Expected outputs for all-zero keys (computed per spec, not via derive functions)
     let expected_did_zeros = {
-        let hash = lib_crypto::hash_blake3(&vec![0u8; 1312]);
-        format!("did:zhtp:{}", hex::encode(hash))
+        let hash = blake3::hash(&public_key_zeros.dilithium_pk);
+        format!("did:zhtp:{}", hash.to_hex())
     };
 
-    // Expected ZK secret = blake3("ZHTP_ZK_SECRET_V1:" + vec![0u8; 2528])
     let expected_zk_secret_zeros = {
-        let mut data = b"ZHTP_ZK_SECRET_V1:".to_vec();
-        data.extend_from_slice(&vec![0u8; 2528]);
-        lib_crypto::hash_blake3(&data)
+        let mut hasher = blake3::Hasher::new();
+        hasher.update(b"ZHTP_ZK_SECRET_V1:");
+        hasher.update(&private_key_zeros.dilithium_sk);
+        hasher.finalize()
+    };
+
+    let expected_zk_cred_hash_zeros = {
+        let age_val: u64 = 30;
+        let juris_code: u64 = 840; // US
+        let mut hasher = blake3::Hasher::new();
+        hasher.update(b"ZHTP_CREDENTIAL_V1:");
+        hasher.update(expected_zk_secret_zeros.as_bytes());
+        hasher.update(&age_val.to_le_bytes());
+        hasher.update(&juris_code.to_le_bytes());
+        hasher.finalize()
+    };
+
+    let expected_wallet_seed_zeros = {
+        let mut hasher = blake3::Hasher::new();
+        hasher.update(b"ZHTP_WALLET_SEED_V1:");
+        hasher.update(&private_key_zeros.dilithium_sk);
+        let mut reader = hasher.finalize_xof();
+        let mut out = [0u8; 64];
+        reader.fill(&mut out);
+        out
+    };
+
+    let expected_dao_member_id_zeros = {
+        let hash = blake3::hash(format!("DAO:{}", expected_did_zeros).as_bytes());
+        hash.to_hex().to_string()
     };
 
     let ownership_proof = ZeroKnowledgeProof {
@@ -355,8 +369,14 @@ fn test_deterministic_derivation_golden_vector() {
     assert_eq!(identity_zeros.did.len(), 73, "DID should be 73 chars (did:zhtp: + 64 hex)");
 
     // Validate ZK secret derivation
-    assert_eq!(identity_zeros.zk_identity_secret, expected_zk_secret_zeros,
+    assert_eq!(identity_zeros.zk_identity_secret, *expected_zk_secret_zeros.as_bytes(),
         "ZK secret should match expected hash for zero keys");
+    assert_eq!(identity_zeros.zk_credential_hash, *expected_zk_cred_hash_zeros.as_bytes(),
+        "ZK credential hash should match expected hash for zero keys");
+    assert_eq!(identity_zeros.wallet_master_seed, expected_wallet_seed_zeros,
+        "Wallet seed should match expected XOF output for zero keys");
+    assert_eq!(identity_zeros.dao_member_id, expected_dao_member_id_zeros,
+        "DAO member ID should match expected hash for zero keys");
 
     // Test vector 2: Non-zero pattern (validates different inputs produce different outputs)
     let public_key_pattern = PublicKey {

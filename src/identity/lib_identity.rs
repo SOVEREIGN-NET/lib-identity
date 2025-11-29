@@ -1,7 +1,7 @@
 //! ZHTP Identity implementation from the original identity.rs
 
 use anyhow::{Result, anyhow};
-use serde::{Deserialize, Serialize};
+use serde::{Serialize, Deserialize};
 use std::collections::HashMap;
 use lib_crypto::{Hash, PublicKey, PrivateKey};
 use lib_proofs::ZeroKnowledgeProof;
@@ -26,10 +26,8 @@ use crate::credentials::IdentityAttestation;
 ///
 /// ### Unsafe Deserialization (NOT RECOMMENDED)
 /// ```ignore
-/// // ✗ UNSAFE: Secrets will be zero - must manually call rederive_secrets()
-/// let mut identity: ZhtpIdentity = serde_json::from_str(&json_data)?;
-/// identity.rederive_secrets(&private_key)?;  // MUST call this!
-/// identity.validate_secrets_derived()?;      // Verify secrets are valid
+/// // ✗ UNSAFE: Direct Deserialize is forbidden; use from_serialized instead.
+/// // Attempting direct deserialization will fail.
 /// ```
 ///
 /// ### Construction (Preferred)
@@ -40,7 +38,7 @@ use crate::credentials::IdentityAttestation;
 ///     primary_device, age, jurisdiction, citizenship_verified, ownership_proof
 /// )?;
 /// ```
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ZhtpIdentity {
     /// Unique identity identifier  
     pub id: IdentityId,
@@ -135,6 +133,17 @@ fn default_wallet_seed() -> [u8; 64] {
 impl PartialEq for ZhtpIdentity {
     fn eq(&self, other: &Self) -> bool {
         self.id == other.id
+    }
+}
+
+impl<'de> Deserialize<'de> for ZhtpIdentity {
+    fn deserialize<D>(_deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        Err(serde::de::Error::custom(
+            "Direct deserialization of ZhtpIdentity is forbidden. Use ZhtpIdentity::from_serialized(private_key) to safely re-derive secrets.",
+        ))
     }
 }
 
@@ -431,11 +440,112 @@ impl ZhtpIdentity {
     /// let restored = ZhtpIdentity::from_serialized(&json, &private_key)?;
     /// ```
     pub fn from_serialized(data: &str, private_key: &PrivateKey) -> Result<Self> {
-        let mut identity: ZhtpIdentity = serde_json::from_str(data)
-            .map_err(|e| anyhow!("Failed to deserialize identity: {}", e))?;
+        // SECURITY: Direct Deserialize is forbidden; parse manually into an intermediate
+        let raw: serde_json::Value = serde_json::from_str(data)
+            .map_err(|e| anyhow!("Failed to parse identity JSON: {}", e))?;
 
-        // SECURITY: Automatically re-derive secrets after deserialization
-        identity.rederive_secrets(private_key)?;
+        // Manually extract required fields
+        let public_key: PublicKey = serde_json::from_value(
+            raw.get("public_key")
+                .cloned()
+                .ok_or_else(|| anyhow!("Missing public_key"))?,
+        ).map_err(|e| anyhow!("Invalid public_key: {}", e))?;
+
+        let identity_type: IdentityType = serde_json::from_value(
+            raw.get("identity_type")
+                .cloned()
+                .ok_or_else(|| anyhow!("Missing identity_type"))?,
+        ).map_err(|e| anyhow!("Invalid identity_type: {}", e))?;
+
+        let primary_device = raw.get("primary_device")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow!("Missing primary_device"))?
+            .to_string();
+
+        let age = raw.get("age").and_then(|v| v.as_u64());
+        let jurisdiction = raw.get("jurisdiction").and_then(|v| v.as_str()).map(|s| s.to_string());
+        let citizenship_verified = raw.get("citizenship_verified").and_then(|v| v.as_bool()).unwrap_or(false);
+
+        // Optional fields
+        let credentials: HashMap<CredentialType, ZkCredential> = serde_json::from_value(
+            raw.get("credentials").cloned().unwrap_or_else(|| serde_json::json!({}))
+        ).unwrap_or_default();
+        let metadata: HashMap<String, String> = serde_json::from_value(
+            raw.get("metadata").cloned().unwrap_or_else(|| serde_json::json!({}))
+        ).unwrap_or_default();
+        let attestations: Vec<IdentityAttestation> = serde_json::from_value(
+            raw.get("attestations").cloned().unwrap_or_else(|| serde_json::json!([]))
+        ).unwrap_or_default();
+
+        // Rebuild via new() to ensure derivations are correct
+        let mut identity = ZhtpIdentity::new(
+            identity_type,
+            public_key,
+            private_key.clone(),
+            primary_device,
+            age,
+            jurisdiction,
+            citizenship_verified,
+            ZeroKnowledgeProof {
+                proof_system: raw.get("ownership_proof").and_then(|v| v.get("proof_system")).and_then(|v| v.as_str()).unwrap_or_default().to_string(),
+                proof_data: raw.get("ownership_proof").and_then(|v| v.get("proof_data")).and_then(|v| v.as_array()).map(|arr| arr.iter().filter_map(|v| v.as_u64()).map(|n| n as u8).collect()).unwrap_or_default(),
+                public_inputs: raw.get("ownership_proof").and_then(|v| v.get("public_inputs")).and_then(|v| v.as_array()).map(|arr| arr.iter().filter_map(|v| v.as_u64()).map(|n| n as u8).collect()).unwrap_or_default(),
+                verification_key: raw.get("ownership_proof").and_then(|v| v.get("verification_key")).and_then(|v| v.as_array()).map(|arr| arr.iter().filter_map(|v| v.as_u64()).map(|n| n as u8).collect()).unwrap_or_default(),
+                plonky2_proof: None,
+                proof: raw.get("ownership_proof").and_then(|v| v.get("proof")).and_then(|v| v.as_array()).map(|arr| arr.iter().filter_map(|v| v.as_u64()).map(|n| n as u8).collect()).unwrap_or_default(),
+            },
+        )?;
+
+        // Restore all non-derived fields from serialized data
+        identity.credentials = credentials;
+        identity.metadata = metadata;
+        identity.attestations = attestations;
+
+        // Restore state fields
+        if let Some(reputation) = raw.get("reputation").and_then(|v| v.as_u64()) {
+            identity.reputation = reputation;
+        }
+        if let Some(access_level) = raw.get("access_level") {
+            if let Ok(level) = serde_json::from_value(access_level.clone()) {
+                identity.access_level = level;
+            }
+        }
+        if let Some(private_data_id) = raw.get("private_data_id") {
+            if let Ok(id) = serde_json::from_value(private_data_id.clone()) {
+                identity.private_data_id = id;
+            }
+        }
+        if let Some(wallet_manager) = raw.get("wallet_manager") {
+            if let Ok(manager) = serde_json::from_value(wallet_manager.clone()) {
+                identity.wallet_manager = manager;
+            }
+        }
+        if let Some(created_at) = raw.get("created_at").and_then(|v| v.as_u64()) {
+            identity.created_at = created_at;
+        }
+        if let Some(last_active) = raw.get("last_active").and_then(|v| v.as_u64()) {
+            identity.last_active = last_active;
+        }
+        if let Some(recovery_keys) = raw.get("recovery_keys") {
+            if let Ok(keys) = serde_json::from_value(recovery_keys.clone()) {
+                identity.recovery_keys = keys;
+            }
+        }
+        if let Some(did_document_hash) = raw.get("did_document_hash") {
+            if let Ok(hash) = serde_json::from_value(did_document_hash.clone()) {
+                identity.did_document_hash = hash;
+            }
+        }
+        if let Some(owner_identity_id) = raw.get("owner_identity_id") {
+            if let Ok(id) = serde_json::from_value(owner_identity_id.clone()) {
+                identity.owner_identity_id = id;
+            }
+        }
+        if let Some(reward_wallet_id) = raw.get("reward_wallet_id") {
+            if let Ok(id) = serde_json::from_value(reward_wallet_id.clone()) {
+                identity.reward_wallet_id = id;
+            }
+        }
 
         Ok(identity)
     }

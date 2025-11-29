@@ -213,7 +213,7 @@ impl NodeId {
     /// ```
     /// use lib_identity::types::NodeId;
     ///
-    /// let hex = "0123456789abcdef0123456789abcdef01234567";
+    /// let hex = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
     /// let node_id = NodeId::from_hex(hex).unwrap();
     /// assert_eq!(node_id.to_hex(), hex);
     /// ```
@@ -721,13 +721,13 @@ mod tests {
 
     #[test]
     fn test_from_hex_rejects_0x_prefix() {
-        // GIVEN: Hex with 0x prefix
-        let hex_with_prefix = "0x0123456789abcdef0123456789abcdef01234567";
+        // GIVEN: Hex with 0x prefix (66 chars total: "0x" + 64 hex chars)
+        let hex_with_prefix = "0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
 
         // WHEN: Creating NodeId
         let result = NodeId::from_hex(hex_with_prefix);
 
-        // THEN: Should reject (42 chars, not 40)
+        // THEN: Should reject (66 chars with prefix, not 64)
         assert!(result.is_err(), "Should reject 0x prefix");
     }
 

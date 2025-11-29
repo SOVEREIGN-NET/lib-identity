@@ -8,6 +8,7 @@
 
 - **Zero-Knowledge Credentials**: Privacy-preserving identity verification and attestation
 - **Quantum-Resistant Security**: Integration with CRYSTALS-Dilithium and Kyber algorithms
+- **Device-Level Identity**: Deterministic NodeId derivation for multi-device support
 - **Citizen Onboarding**: Complete digital identity lifecycle management
 - **Selective Disclosure**: Reveal only necessary identity attributes
 - **Biometric Recovery**: Secure identity recovery mechanisms

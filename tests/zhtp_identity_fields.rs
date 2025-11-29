@@ -189,10 +189,16 @@ fn test_citizenship_fields() {
 // Helper function to create test identity using proper new() constructor
 // This ensures all cryptographic fields are derived correctly per spec
 fn create_test_identity() -> ZhtpIdentity {
-    // Use a real-ish keypair for testing (deterministic for repeatability)
-    let public_key = PublicKey::new(vec![42u8; 64]);
+    // Use realistic Dilithium2 key sizes for testing
+    // Dilithium2: PK = 1312 bytes, SK = 2528 bytes
+    // Using deterministic values for repeatability in tests
+    let public_key = PublicKey {
+        dilithium_pk: vec![42u8; 1312],  // Real Dilithium2 public key size
+        kyber_pk: vec![],
+        key_id: [42u8; 32],
+    };
     let private_key = PrivateKey {
-        dilithium_sk: vec![1u8; 32],
+        dilithium_sk: vec![1u8; 2528],   // Real Dilithium2 secret key size
         kyber_sk: vec![],
         master_seed: vec![],
     };
@@ -222,4 +228,167 @@ fn create_test_identity() -> ZhtpIdentity {
     identity.reputation = 1000u64;
 
     identity
+}
+
+// SECURITY TEST: Validate secrets are properly derived
+#[test]
+fn test_secrets_validation() {
+    let identity = create_test_identity();
+
+    // Secrets should be properly derived (non-zero)
+    assert!(identity.is_secrets_derived(), "Secrets should be derived after new()");
+    assert!(identity.validate_secrets_derived().is_ok(), "Validation should pass for derived secrets");
+}
+
+// SECURITY TEST: Deserialization produces zero secrets that must be re-derived
+#[test]
+fn test_deserialization_requires_rederive() {
+    use serde_json;
+
+    // Create identity with proper derivation
+    let identity = create_test_identity();
+
+    // Serialize
+    let json = serde_json::to_string(&identity).expect("Serialization should succeed");
+
+    // Deserialize - secrets will be zero
+    let mut deserialized: ZhtpIdentity = serde_json::from_str(&json).expect("Deserialization should succeed");
+
+    // SECURITY: Secrets should be zero after deserialization
+    assert!(!deserialized.is_secrets_derived(), "Secrets should be zero after deserialization");
+    assert!(deserialized.validate_secrets_derived().is_err(), "Validation should fail for zero secrets");
+
+    // Re-derive secrets
+    let private_key = PrivateKey {
+        dilithium_sk: vec![1u8; 2528],
+        kyber_sk: vec![],
+        master_seed: vec![],
+    };
+    deserialized.rederive_secrets(&private_key).expect("Rederivation should succeed");
+
+    // Now secrets should be valid
+    assert!(deserialized.is_secrets_derived(), "Secrets should be derived after rederive_secrets()");
+    assert!(deserialized.validate_secrets_derived().is_ok(), "Validation should pass after rederivation");
+}
+
+// GOLDEN VECTOR TEST: Validate deterministic derivation
+#[test]
+fn test_deterministic_derivation_golden_vector() {
+    // Using fixed key material to validate deterministic derivation
+    let public_key = PublicKey {
+        dilithium_pk: vec![42u8; 1312],
+        kyber_pk: vec![],
+        key_id: [42u8; 32],
+    };
+    let private_key = PrivateKey {
+        dilithium_sk: vec![1u8; 2528],
+        kyber_sk: vec![],
+        master_seed: vec![],
+    };
+
+    let ownership_proof = ZeroKnowledgeProof {
+        proof_system: "test".to_string(),
+        proof_data: vec![],
+        public_inputs: vec![],
+        verification_key: vec![],
+        plonky2_proof: None,
+        proof: vec![],
+    };
+
+    // Create identity twice with same keys
+    let identity1 = ZhtpIdentity::new(
+        IdentityType::Human,
+        public_key.clone(),
+        private_key.clone(),
+        "laptop".to_string(),
+        Some(30u64),
+        Some("US".to_string()),
+        true,
+        ownership_proof.clone(),
+    ).expect("Failed to create identity 1");
+
+    let identity2 = ZhtpIdentity::new(
+        IdentityType::Human,
+        public_key.clone(),
+        private_key.clone(),
+        "laptop".to_string(),
+        Some(30u64),
+        Some("US".to_string()),
+        true,
+        ownership_proof.clone(),
+    ).expect("Failed to create identity 2");
+
+    // All derived fields should match (deterministic)
+    assert_eq!(identity1.did, identity2.did, "DID should be deterministic");
+    assert_eq!(identity1.zk_identity_secret, identity2.zk_identity_secret, "ZK secret should be deterministic");
+    assert_eq!(identity1.zk_credential_hash, identity2.zk_credential_hash, "Credential hash should be deterministic");
+    assert_eq!(identity1.wallet_master_seed, identity2.wallet_master_seed, "Wallet seed should be deterministic");
+    assert_eq!(identity1.dao_member_id, identity2.dao_member_id, "DAO member ID should be deterministic");
+
+    // Validate expected DID format from blake3(dilithium_pk)
+    let expected_did_hash = lib_crypto::hash_blake3(&public_key.dilithium_pk);
+    let expected_did = format!("did:zhtp:{}", hex::encode(expected_did_hash));
+    assert_eq!(identity1.did, expected_did, "DID should match blake3(dilithium_pk)");
+}
+
+// TEST: Voting power follows citizenship rules
+#[test]
+fn test_dao_voting_power_rules() {
+    let public_key = PublicKey {
+        dilithium_pk: vec![42u8; 1312],
+        kyber_pk: vec![],
+        key_id: [42u8; 32],
+    };
+    let private_key = PrivateKey {
+        dilithium_sk: vec![1u8; 2528],
+        kyber_sk: vec![],
+        master_seed: vec![],
+    };
+    let ownership_proof = ZeroKnowledgeProof {
+        proof_system: "test".to_string(),
+        proof_data: vec![],
+        public_inputs: vec![],
+        verification_key: vec![],
+        plonky2_proof: None,
+        proof: vec![],
+    };
+
+    // Verified citizen: voting power = 10
+    let verified_citizen = ZhtpIdentity::new(
+        IdentityType::Human,
+        public_key.clone(),
+        private_key.clone(),
+        "device1".to_string(),
+        Some(30),
+        Some("US".to_string()),
+        true,  // verified
+        ownership_proof.clone(),
+    ).expect("Failed to create verified citizen");
+    assert_eq!(verified_citizen.dao_voting_power, 10, "Verified citizen should have voting power 10");
+
+    // Unverified human: voting power = 1
+    let unverified_human = ZhtpIdentity::new(
+        IdentityType::Human,
+        public_key.clone(),
+        private_key.clone(),
+        "device2".to_string(),
+        Some(30),
+        Some("US".to_string()),
+        false,  // not verified
+        ownership_proof.clone(),
+    ).expect("Failed to create unverified human");
+    assert_eq!(unverified_human.dao_voting_power, 1, "Unverified human should have voting power 1");
+
+    // Device type: voting power = 0
+    let device = ZhtpIdentity::new(
+        IdentityType::Device,
+        public_key.clone(),
+        private_key.clone(),
+        "device3".to_string(),
+        None,
+        None,
+        false,
+        ownership_proof.clone(),
+    ).expect("Failed to create device");
+    assert_eq!(device.dao_voting_power, 0, "Device should have voting power 0");
 }

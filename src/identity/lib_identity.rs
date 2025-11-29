@@ -359,6 +359,34 @@ impl ZhtpIdentity {
         })
     }
 
+    /// Check if cryptographic secrets have been properly derived (not zero-valued)
+    ///
+    /// SECURITY: This should be called after deserialization to ensure secrets were re-derived.
+    /// Zero-valued secrets indicate the identity was deserialized but rederive_secrets() was not called.
+    ///
+    /// # Returns
+    /// true if all secrets are non-zero (properly derived), false if any are zero
+    pub fn is_secrets_derived(&self) -> bool {
+        self.zk_identity_secret != [0u8; 32]
+            && self.zk_credential_hash != [0u8; 32]
+            && self.wallet_master_seed != [0u8; 64]
+    }
+
+    /// Validate that secrets are properly derived, returning an error if not
+    ///
+    /// SECURITY: Use this to enforce that secrets are derived before use.
+    ///
+    /// # Returns
+    /// Ok(()) if secrets are properly derived, Err if any are zero-valued
+    pub fn validate_secrets_derived(&self) -> Result<()> {
+        if !self.is_secrets_derived() {
+            return Err(anyhow!(
+                "Identity has zero-valued secrets - must call rederive_secrets() after deserialization"
+            ));
+        }
+        Ok(())
+    }
+
     /// Re-derive cryptographic secrets after deserialization
     ///
     /// SECURITY: This method MUST be called after deserializing a ZhtpIdentity from storage.

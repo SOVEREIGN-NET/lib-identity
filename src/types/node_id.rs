@@ -41,7 +41,108 @@ use lib_crypto::Hash;
 pub struct NodeId([u8; 20]);
 
 impl NodeId {
-    // TODO: Implementation will go here
+    /// Create NodeId from raw 20-byte array
+    ///
+    /// # Examples
+    /// ```
+    /// use lib_identity::types::NodeId;
+    ///
+    /// let bytes = [0x42; 20];
+    /// let node_id = NodeId::from_bytes(bytes);
+    /// assert_eq!(node_id.as_bytes(), &bytes);
+    /// ```
+    pub fn from_bytes(bytes: [u8; 20]) -> Self {
+        Self(bytes)
+    }
+
+    /// Get reference to underlying 20-byte array
+    ///
+    /// # Examples
+    /// ```
+    /// use lib_identity::types::NodeId;
+    ///
+    /// let bytes = [0x42; 20];
+    /// let node_id = NodeId::from_bytes(bytes);
+    /// assert_eq!(node_id.as_bytes(), &bytes);
+    /// ```
+    pub fn as_bytes(&self) -> &[u8; 20] {
+        &self.0
+    }
+
+    /// Create NodeId from DID and device name
+    ///
+    /// Performs strict validation on both inputs and normalizes the device name
+    /// (trimmed and lowercased) before hashing.
+    ///
+    /// # Validation Rules
+    /// - DID must start with `did:zhtp:`
+    /// - Device name must be 1-64 characters after trimming
+    /// - Device name must match: `^[A-Za-z0-9._-]+$`
+    ///
+    /// # Errors
+    /// Returns `Err` if validation fails. Never panics on invalid input.
+    ///
+    /// # Examples
+    /// ```
+    /// use lib_identity::types::NodeId;
+    ///
+    /// // Valid inputs
+    /// let node_id = NodeId::from_did_device(
+    ///     "did:zhtp:abc123",
+    ///     "laptop"
+    /// ).expect("Valid inputs");
+    ///
+    /// // Case-insensitive device names
+    /// let upper = NodeId::from_did_device("did:zhtp:abc123", "LAPTOP").unwrap();
+    /// let lower = NodeId::from_did_device("did:zhtp:abc123", "laptop").unwrap();
+    /// assert_eq!(upper, lower); // Same NodeId (normalized)
+    ///
+    /// // Invalid DID
+    /// assert!(NodeId::from_did_device("invalid", "laptop").is_err());
+    /// ```
+    pub fn from_did_device(did: &str, device: &str) -> Result<Self> {
+        // TODO: Will implement validation in next step
+        unimplemented!("Validation logic coming in next checkpoint")
+    }
+
+    /// Convert NodeId to hex string (40 lowercase chars)
+    ///
+    /// # Examples
+    /// ```
+    /// use lib_identity::types::NodeId;
+    ///
+    /// let bytes = [0x42; 20];
+    /// let node_id = NodeId::from_bytes(bytes);
+    /// let hex = node_id.to_hex();
+    /// assert_eq!(hex.len(), 40);
+    /// ```
+    pub fn to_hex(&self) -> String {
+        hex::encode(self.0)
+    }
+
+    /// Create NodeId from hex string
+    pub fn from_hex(hex: &str) -> Result<Self> {
+        // TODO: Will implement in next step
+        unimplemented!("Hex parsing coming in next checkpoint")
+    }
+
+    /// Calculate XOR distance to another NodeId (for Kademlia routing)
+    pub fn xor_distance(&self, other: &NodeId) -> [u8; 20] {
+        // TODO: Will implement in next step
+        unimplemented!("XOR distance coming in next checkpoint")
+    }
+
+    /// Convert to 32-byte storage Hash (zero-padded)
+    pub fn to_storage_hash(&self) -> Hash {
+        // TODO: Will implement in next step
+        unimplemented!("Storage hash conversion coming in next checkpoint")
+    }
+
+    /// Create NodeId from 32-byte storage Hash (takes first 20 bytes)
+    pub fn from_storage_hash(hash: &Hash) -> Self {
+        // TODO: Will implement in next step
+        unimplemented!("Storage hash conversion coming in next checkpoint")
+    }
 }
 
 impl std::fmt::Display for NodeId {

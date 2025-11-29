@@ -64,17 +64,24 @@ impl IdentityManager {
         economic_model: &mut EconomicModel,
     ) -> Result<CitizenshipResult> {
         // Generate quantum-resistant key pair
-        let (private_key, public_key) = self.generate_pq_keypair().await?;
-        
+        let (private_key_bytes, public_key) = self.generate_pq_keypair().await?;
+
+        // Wrap in PrivateKey struct
+        let private_key = lib_crypto::PrivateKey {
+            dilithium_sk: private_key_bytes.clone(),
+            kyber_sk: vec![],  // Not used in current implementation
+            master_seed: vec![],  // Derived separately
+        };
+
         // Generate identity seed
         let mut seed = [0u8; 32];
         rand::thread_rng().fill_bytes(&mut seed);
-        
+
         // Create identity ID from public key
         let id = Hash::from_bytes(&blake3::hash(&public_key).as_bytes()[..32]);
-        
+
         // Generate ownership proof
-        let ownership_proof = self.generate_ownership_proof(&private_key, &public_key).await?;
+        let ownership_proof = self.generate_ownership_proof(&private_key_bytes, &public_key).await?;
         
         // Create primary wallets for citizen WITH seed phrases
         let mut wallet_manager = crate::wallets::WalletManager::new(id.clone());
@@ -105,6 +112,8 @@ impl IdentityManager {
             id.clone(),
             IdentityType::Human,
             public_key.clone(),
+            private_key.clone(),
+            "primary".to_string(),  // Default device name for new citizens
             ownership_proof,
             wallet_manager,
         )?;
@@ -116,7 +125,7 @@ impl IdentityManager {
         
         // Store private data
         let private_data = PrivateIdentityData::new(
-            private_key,
+            private_key_bytes,
             public_key.clone(),
             seed,
             recovery_options,
@@ -547,14 +556,23 @@ impl IdentityManager {
         }
         
         // Derive identity from recovery phrase
-        let (identity_id, private_key, public_key, seed) = recovery_manager.restore_from_phrase(&phrase_words).await?;
-        
+        let (identity_id, private_key_bytes, public_key, seed) = recovery_manager.restore_from_phrase(&phrase_words).await?;
+
+        // Wrap in PrivateKey struct
+        let private_key = lib_crypto::PrivateKey {
+            dilithium_sk: private_key_bytes.clone(),
+            kyber_sk: vec![],  // Not used in current implementation
+            master_seed: vec![],  // Derived separately
+        };
+
         // Create identity structure
         let mut identity = ZhtpIdentity::from_legacy_fields(
             identity_id.clone(),
             IdentityType::Human,
             public_key.clone(),
-            self.generate_ownership_proof(&private_key, &public_key).await?,
+            private_key.clone(),
+            "primary".to_string(),  // Default device name for imported identity
+            self.generate_ownership_proof(&private_key_bytes, &public_key).await?,
             crate::wallets::WalletManager::new(identity_id.clone()),
         )?;
 
@@ -565,7 +583,7 @@ impl IdentityManager {
         
         // Create private data
         let private_data = PrivateIdentityData::new(
-            private_key,
+            private_key_bytes,
             public_key,
             seed,
             vec![], // No additional recovery options for imported identities

@@ -587,7 +587,12 @@ mod tests {
     use lib_proofs::ZeroKnowledgeProof;
 
     fn create_test_identity() -> ZhtpIdentity {
-        let public_key = vec![42u8; 32];
+        let public_key = lib_crypto::PublicKey::new(vec![42u8; 64]);
+        let private_key = lib_crypto::PrivateKey {
+            dilithium_sk: vec![1u8; 32],
+            kyber_sk: vec![],
+            master_seed: vec![],
+        };
         let ownership_proof = ZeroKnowledgeProof {
             proof_system: "Test".to_string(),
             proof_data: vec![1, 2, 3, 4],
@@ -596,10 +601,14 @@ mod tests {
             plonky2_proof: None,
             proof: vec![],
         };
-        
+
         ZhtpIdentity::new(
             IdentityType::Human,
             public_key,
+            private_key,
+            "test_device".to_string(),
+            Some(30),
+            Some("US".to_string()),
             ownership_proof,
         ).expect("Failed to create test identity")
     }

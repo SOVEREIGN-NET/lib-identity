@@ -10,9 +10,14 @@ use crate::types::{IdentityId, IdentityType, CredentialType, IdentityProofParams
 use crate::credentials::ZkCredential;
 use crate::credentials::IdentityAttestation;
 
-/// Default function for wallet_master_seed
+/// Default function for wallet_master_seed (only for deserialization)
 fn default_wallet_seed() -> [u8; 64] {
     [0u8; 64]
+}
+
+/// Default function for zk_identity_secret (only for deserialization)
+fn default_zk_secret() -> [u8; 32] {
+    [0u8; 32]
 }
 
 /// ZHTP Identity with zero-knowledge privacy and integrated quantum wallet management
@@ -82,13 +87,14 @@ pub struct ZhtpIdentity {
     #[serde(skip)]
     pub master_seed_phrase: Option<crate::recovery::RecoveryPhrase>,
     /// Zero-knowledge identity secret (32 bytes)
-    #[serde(skip)]
-    #[serde(default)]
+    /// Derived from private key - never serialized for security
+    #[serde(skip, default = "default_zk_secret")]
     pub zk_identity_secret: [u8; 32],
     /// Zero-knowledge credential hash (32 bytes)
-    #[serde(default)]
+    /// Derived from secret + age + jurisdiction
     pub zk_credential_hash: [u8; 32],
     /// Wallet master seed (64 bytes - raw derived seed)
+    /// Derived from private key - never serialized for security
     #[serde(skip, default = "default_wallet_seed")]
     pub wallet_master_seed: [u8; 64],
     /// DAO member identifier
@@ -112,26 +118,47 @@ impl PartialEq for ZhtpIdentity {
 }
 
 impl ZhtpIdentity {
-    /// Create a new ZHTP identity with integrated quantum wallet system
+    /// Create a new ZHTP identity with properly derived fields per architecture spec
+    ///
+    /// All cryptographic fields (DID, secrets, seeds) are deterministically derived
+    /// from the master keypair according to ARCHITECTURE_CONSOLIDATION.md specification.
     pub fn new(
         identity_type: IdentityType,
-        did: String,
         public_key: PublicKey,
-        private_key: Option<PrivateKey>,
-        device_name: String,
+        private_key: PrivateKey,  // Required for proper derivation
+        primary_device: String,
+        age: Option<u64>,
+        jurisdiction: Option<String>,
         ownership_proof: ZeroKnowledgeProof,
     ) -> Result<Self> {
-        let id = Hash::from_bytes(&public_key.as_bytes());
+        // 1. Derive DID from public key (canonical)
+        let did = Self::generate_did(&public_key.dilithium_pk)?;
+
+        // 2. Derive ID from DID
+        let id = Hash::from_bytes(&lib_crypto::hash_blake3(did.as_bytes()).to_vec());
+
+        // 3. Generate primary NodeId from DID + device
+        let node_id = NodeId::from_did_device(&did, &primary_device)?;
+
+        // 4. Initialize device mapping with primary device
+        let mut device_node_ids = HashMap::new();
+        device_node_ids.insert(primary_device.clone(), node_id);
+
+        // 5. Derive all secrets from master keypair (deterministic)
+        let zk_identity_secret = Self::derive_zk_secret(&private_key.dilithium_sk)?;
+        let zk_credential_hash = Self::derive_credential_hash(&zk_identity_secret, age, jurisdiction.as_deref())?;
+        let wallet_master_seed = Self::derive_wallet_seed(&private_key.dilithium_sk)?;
+        let dao_member_id = Self::derive_dao_member_id(&did)?;
+
+        // 6. Set initial DAO voting power (citizens = 1, verified humans = 10)
+        let dao_voting_power = match identity_type {
+            IdentityType::Human => 1,
+            _ => 0,
+        };
+
         let current_time = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)?
             .as_secs();
-
-        // Create primary device NodeId
-        let node_id = NodeId::from_did_device(&did, &device_name)?;
-
-        // Initialize device mapping with primary device
-        let mut device_node_ids = HashMap::new();
-        device_node_ids.insert(device_name.clone(), node_id);
 
         // Create integrated wallet manager
         let wallet_manager = crate::wallets::WalletManager::new(id.clone());
@@ -141,73 +168,145 @@ impl ZhtpIdentity {
             identity_type,
             did,
             public_key,
-            private_key,
+            private_key: Some(private_key),
             node_id,
             device_node_ids,
-            primary_device: device_name,
+            primary_device,
             ownership_proof,
             credentials: HashMap::new(),
             reputation: 0,
-            age: None,
+            age,
             access_level: AccessLevel::default(),
             metadata: HashMap::new(),
-            private_data_id: Some(id.clone()),
+            private_data_id: Some(id),
             wallet_manager,
             attestations: Vec::new(),
             created_at: current_time,
             last_active: current_time,
             recovery_keys: Vec::new(),
             did_document_hash: None,
-            owner_identity_id: None,  // User identities have no owner
-            reward_wallet_id: None,    // User identities don't need this (nodes do)
-            encrypted_master_seed: None,  // Optional HD wallet feature
+            owner_identity_id: None,
+            reward_wallet_id: None,
+            encrypted_master_seed: None,
             next_wallet_index: 0,
-            password_hash: None,  // Set via PasswordManager
-            master_seed_phrase: None,  // Set during identity creation
-            zk_identity_secret: [0u8; 32],  // Set during identity creation
-            zk_credential_hash: [0u8; 32],
-            wallet_master_seed: [0u8; 64],  // Derived from identity secrets
-            dao_member_id: String::new(),
-            dao_voting_power: 0,
+            password_hash: None,
+            master_seed_phrase: None,
+            zk_identity_secret,
+            zk_credential_hash,
+            wallet_master_seed,
+            dao_member_id,
+            dao_voting_power,
             citizenship_verified: false,
-            jurisdiction: None,
+            jurisdiction,
         })
+    }
+
+    /// Generate canonical DID from Dilithium public key
+    /// Per spec: "did:zhtp:[hex(blake3(dilithium_pk))]"
+    fn generate_did(dilithium_pk: &[u8]) -> Result<String> {
+        let hash = lib_crypto::hash_blake3(dilithium_pk);
+        Ok(format!("did:zhtp:{}", hex::encode(hash)))
+    }
+
+    /// Derive ZK identity secret from private key
+    /// Per spec: Blake3("ZHTP_ZK_SECRET_V1:" + dilithium_private_key)
+    fn derive_zk_secret(dilithium_sk: &[u8]) -> Result<[u8; 32]> {
+        let hash = lib_crypto::hash_blake3(&[b"ZHTP_ZK_SECRET_V1:", dilithium_sk].concat());
+        Ok(hash)
+    }
+
+    /// Derive credential hash from secret + age + jurisdiction
+    /// Per spec: Blake3(secret + age + jurisdiction)
+    fn derive_credential_hash(
+        secret: &[u8; 32],
+        age: Option<u64>,
+        jurisdiction: Option<&str>,
+    ) -> Result<[u8; 32]> {
+        let age_val = age.unwrap_or(25);
+        let juris_code = Self::jurisdiction_to_code(jurisdiction.unwrap_or("US"));
+        let hash = lib_crypto::hash_blake3(&[
+            b"ZHTP_CREDENTIAL_V1:",
+            secret.as_slice(),
+            &age_val.to_le_bytes(),
+            &juris_code.to_le_bytes(),
+        ].concat());
+        Ok(hash)
+    }
+
+    /// Derive wallet master seed using Blake3 XOF
+    /// Per spec: Blake3_XOF("ZHTP_WALLET_SEED_V1:" + dilithium_private_key)
+    fn derive_wallet_seed(dilithium_sk: &[u8]) -> Result<[u8; 64]> {
+        let mut output = [0u8; 64];
+        let mut hasher = blake3::Hasher::new();
+        hasher.update(b"ZHTP_WALLET_SEED_V1:");
+        hasher.update(dilithium_sk);
+        let mut reader = hasher.finalize_xof();
+        reader.fill(&mut output);
+        Ok(output)
+    }
+
+    /// Derive DAO member ID from DID
+    /// Per spec: Blake3("DAO:" + DID)
+    fn derive_dao_member_id(did: &str) -> Result<String> {
+        let hash = lib_crypto::hash_blake3(format!("DAO:{}", did).as_bytes());
+        Ok(hex::encode(hash))
+    }
+
+    /// Convert jurisdiction to numeric code (ISO 3166-1)
+    fn jurisdiction_to_code(jurisdiction: &str) -> u64 {
+        match jurisdiction {
+            "US" => 840,
+            "CA" => 124,
+            "GB" => 826,
+            "DE" => 276,
+            "FR" => 250,
+            _ => 840,  // Default to US
+        }
     }
     
     /// Create identity from legacy Vec<u8> public_key (for migration)
-    /// This provides default values for new fields
+    /// Now properly derives all fields from keypair per architecture spec
     pub fn from_legacy_fields(
         id: IdentityId,
         identity_type: IdentityType,
         public_key_bytes: Vec<u8>,
+        private_key: PrivateKey,
+        primary_device: String,
         ownership_proof: ZeroKnowledgeProof,
         wallet_manager: crate::wallets::WalletManager,
     ) -> Result<Self> {
         // Convert Vec<u8> to PublicKey
-        let public_key = PublicKey::new(public_key_bytes.clone());
+        let public_key = PublicKey::new(public_key_bytes);
 
-        // Generate temporary DID from public key hash
-        let did = format!("did:zhtp:{}", hex::encode(&public_key_bytes[..16]));
+        // Derive DID from public key (canonical)
+        let did = Self::generate_did(&public_key.dilithium_pk)?;
 
-        // Create default NodeId (will be properly set later)
-        let node_id = NodeId::from_did_device(&did, "default")?;
+        // Generate primary NodeId from DID + device
+        let node_id = NodeId::from_did_device(&did, &primary_device)?;
+
+        // Initialize device mapping
+        let mut device_node_ids = HashMap::new();
+        device_node_ids.insert(primary_device.clone(), node_id);
+
+        // Derive all secrets from master keypair (deterministic)
+        let zk_identity_secret = Self::derive_zk_secret(&private_key.dilithium_sk)?;
+        let zk_credential_hash = Self::derive_credential_hash(&zk_identity_secret, None, None)?;
+        let wallet_master_seed = Self::derive_wallet_seed(&private_key.dilithium_sk)?;
+        let dao_member_id = Self::derive_dao_member_id(&did)?;
 
         let current_time = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)?
             .as_secs();
-
-        let mut device_node_ids = HashMap::new();
-        device_node_ids.insert("default".to_string(), node_id);
 
         Ok(ZhtpIdentity {
             id: id.clone(),
             identity_type,
             did,
             public_key,
-            private_key: None,
+            private_key: Some(private_key),
             node_id,
             device_node_ids,
-            primary_device: "default".to_string(),
+            primary_device,
             ownership_proof,
             credentials: HashMap::new(),
             reputation: 0,
@@ -227,10 +326,10 @@ impl ZhtpIdentity {
             next_wallet_index: 0,
             password_hash: None,
             master_seed_phrase: None,
-            zk_identity_secret: [0u8; 32],
-            zk_credential_hash: [0u8; 32],
-            wallet_master_seed: [0u8; 64],
-            dao_member_id: String::new(),
+            zk_identity_secret,
+            zk_credential_hash,
+            wallet_master_seed,
+            dao_member_id,
             dao_voting_power: 0,
             citizenship_verified: false,
             jurisdiction: None,

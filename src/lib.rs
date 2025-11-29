@@ -101,6 +101,8 @@ pub async fn create_user_identity_with_wallet(
         identity_id.clone(),
         IdentityType::Human,
         public_key.to_vec(),
+        keypair.private_key.clone(),
+        "primary".to_string(),  // Default device name for user identity
         lib_proofs::ZeroKnowledgeProof {
             proof_system: "UserIdentity".to_string(),
             proof_data: vec![0u8; 32],
@@ -209,6 +211,8 @@ pub async fn create_node_device_identity(
         node_identity_id.clone(),
         IdentityType::Device,
         public_key.to_vec(),
+        keypair.private_key.clone(),
+        node_name.clone(),  // Use node name as device name
         lib_proofs::ZeroKnowledgeProof {
             proof_system: "NodeDevice".to_string(),
             proof_data: vec![0u8; 32],

@@ -10,28 +10,16 @@ use crate::types::{IdentityId, IdentityType, CredentialType, IdentityProofParams
 use crate::credentials::ZkCredential;
 use crate::credentials::IdentityAttestation;
 
-/// SECURITY: Default functions for skipped deserialization fields
-/// These fields MUST be re-derived after deserialization using rederive_secrets()
-fn default_zk_secret() -> [u8; 32] {
-    [0u8; 32]
-}
-
-fn default_zk_hash() -> [u8; 32] {
-    [0u8; 32]
-}
-
-fn default_wallet_seed() -> [u8; 64] {
-    [0u8; 64]
-}
-
 /// ZHTP Identity with zero-knowledge privacy and integrated quantum wallet management
 ///
 /// ## Security Note on Deserialization
 /// The fields `zk_identity_secret`, `zk_credential_hash`, and `wallet_master_seed` are marked
-/// with `#[serde(skip)]` and CANNOT be deserialized. They will be zero-valued after
-/// deserialization and MUST be re-derived using `rederive_secrets()` with the private key.
+/// with `#[serde(skip)]` and will be ZERO after deserialization.
 ///
-/// **Always construct identities via `new()` or `from_legacy_fields()` for proper security.**
+/// **CRITICAL**: After deserialization, you MUST call `rederive_secrets(private_key)` before
+/// using the identity, or call `validate_secrets_derived()` to ensure secrets are present.
+///
+/// **Recommended**: Always construct identities via `new()` or `from_legacy_fields()` for proper security.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ZhtpIdentity {
     /// Unique identity identifier  
@@ -39,7 +27,6 @@ pub struct ZhtpIdentity {
     /// Identity type
     pub identity_type: IdentityType,
     /// Decentralized Identifier (DID)
-    #[serde(default)]
     pub did: String,
     /// Public key for verification (lib-crypto type)
     pub public_key: PublicKey,
@@ -47,13 +34,10 @@ pub struct ZhtpIdentity {
     #[serde(skip)]
     pub private_key: Option<PrivateKey>,
     /// Primary device NodeId
-    #[serde(default)]
     pub node_id: NodeId,
     /// Device name to NodeId mapping
-    #[serde(default)]
     pub device_node_ids: HashMap<String, NodeId>,
     /// Primary device name
-    #[serde(default)]
     pub primary_device: String,
     /// Zero-knowledge proof of identity ownership
     pub ownership_proof: ZeroKnowledgeProof,
@@ -89,7 +73,7 @@ pub struct ZhtpIdentity {
     #[serde(skip)]
     pub encrypted_master_seed: Option<Vec<u8>>,
     /// Next wallet derivation index for HD wallets
-    #[serde(skip)]
+    #[serde(skip, default)]
     pub next_wallet_index: u32,
     /// Optional password hash for DID-level authentication
     #[serde(skip)]
@@ -98,35 +82,34 @@ pub struct ZhtpIdentity {
     #[serde(skip)]
     pub master_seed_phrase: Option<crate::recovery::RecoveryPhrase>,
     /// Zero-knowledge identity secret (32 bytes)
-    /// Derived from private key - never serialized, cannot be deserialized
-    /// SECURITY: Must construct via new() or from_legacy_fields() to derive properly
-    /// After deserialization, call rederive_secrets() to restore proper values
-    #[serde(skip, default = "default_zk_secret")]
+    /// Derived from private key - never serialized
+    /// SECURITY: Always zero after deserialization - MUST call rederive_secrets()
+    #[serde(skip)]
     pub zk_identity_secret: [u8; 32],
     /// Zero-knowledge credential hash (32 bytes)
-    /// Derived from secret + age + jurisdiction - skipped in serialization
-    /// SECURITY: Must construct via new() or from_legacy_fields() to derive properly
-    /// After deserialization, call rederive_secrets() to restore proper values
-    #[serde(skip, default = "default_zk_hash")]
+    /// Derived from secret + age + jurisdiction
+    /// SECURITY: Always zero after deserialization - MUST call rederive_secrets()
+    #[serde(skip)]
     pub zk_credential_hash: [u8; 32],
     /// Wallet master seed (64 bytes - raw derived seed)
-    /// Derived from private key - never serialized, cannot be deserialized
-    /// SECURITY: Must construct via new() or from_legacy_fields() to derive properly
-    /// After deserialization, call rederive_secrets() to restore proper values
+    /// Derived from private key - never serialized
+    /// SECURITY: Always zero after deserialization - MUST call rederive_secrets()
     #[serde(skip, default = "default_wallet_seed")]
     pub wallet_master_seed: [u8; 64],
     /// DAO member identifier
-    #[serde(default)]
     pub dao_member_id: String,
     /// DAO voting power
-    #[serde(default)]
     pub dao_voting_power: u64,
     /// Citizenship verification status
-    #[serde(default)]
     pub citizenship_verified: bool,
     /// Jurisdiction (optional)
-    #[serde(default)]
     pub jurisdiction: Option<String>,
+}
+
+// Default functions for deserialization of secret fields
+// SECURITY: These explicitly return zero values - secrets MUST be re-derived after deserialization
+fn default_wallet_seed() -> [u8; 64] {
+    [0u8; 64]
 }
 
 impl PartialEq for ZhtpIdentity {

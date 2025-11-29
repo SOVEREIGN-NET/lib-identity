@@ -122,6 +122,7 @@ impl IdentityManager {
         identity.reputation = 500; // Citizens start with higher reputation
         identity.access_level = AccessLevel::FullCitizen;
         identity.citizenship_verified = true;
+        identity.dao_voting_power = 10; // Verified citizens get full voting power
         
         // Store private data
         let private_data = PrivateIdentityData::new(

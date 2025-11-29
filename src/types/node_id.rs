@@ -207,9 +207,41 @@ impl NodeId {
     }
 
     /// Create NodeId from hex string
+    ///
+    /// Accepts exactly 40 hexadecimal characters (case-insensitive).
+    /// Does not accept `0x` prefix.
+    ///
+    /// # Examples
+    /// ```
+    /// use lib_identity::types::NodeId;
+    ///
+    /// let hex = "0123456789abcdef0123456789abcdef01234567";
+    /// let node_id = NodeId::from_hex(hex).unwrap();
+    /// assert_eq!(node_id.to_hex(), hex);
+    /// ```
+    ///
+    /// # Errors
+    /// Returns error if:
+    /// - Length is not exactly 40 characters
+    /// - Contains non-hexadecimal characters
     pub fn from_hex(hex: &str) -> Result<Self> {
-        // TODO: Will implement in next step
-        unimplemented!("Hex parsing coming in next checkpoint")
+        // Check length (must be exactly 40 chars = 20 bytes)
+        if hex.len() != 40 {
+            return Err(anyhow!(
+                "Invalid hex length: expected 40 characters, got {}",
+                hex.len()
+            ));
+        }
+
+        // Decode hex to bytes
+        let bytes = hex::decode(hex)
+            .map_err(|e| anyhow!("Invalid hex string: {}", e))?;
+
+        // Convert to fixed-size array
+        let mut array = [0u8; 20];
+        array.copy_from_slice(&bytes);
+
+        Ok(Self(array))
     }
 
     /// Calculate XOR distance to another NodeId (for Kademlia routing)

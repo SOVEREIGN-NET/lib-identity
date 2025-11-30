@@ -125,6 +125,11 @@ mod tests {
                 total_funds_spent: 0,
                 transaction_count: 0,
             }),
+            derivation_index: None,
+            password_hash: None,
+            owned_content: Vec::new(),
+            total_storage_used: 0,
+            total_content_value: 0,
         };
         
         let forprofit_wallet = QuantumWallet {
@@ -166,6 +171,11 @@ mod tests {
                 total_funds_spent: 0,
                 transaction_count: 0,
             }),
+            derivation_index: None,
+            password_hash: None,
+            owned_content: Vec::new(),
+            total_storage_used: 0,
+            total_content_value: 0,
         };
         
         // Add wallets to manager
@@ -263,6 +273,11 @@ mod tests {
                 total_funds_spent: 0,
                 transaction_count: 0,
             }),
+            derivation_index: None,
+            password_hash: None,
+            owned_content: Vec::new(),
+            total_storage_used: 0,
+            total_content_value: 0,
         };
         
         let nonprofit_wallet = QuantumWallet {
@@ -304,6 +319,11 @@ mod tests {
                 total_funds_spent: 0,
                 transaction_count: 0,
             }),
+            derivation_index: None,
+            password_hash: None,
+            owned_content: Vec::new(),
+            total_storage_used: 0,
+            total_content_value: 0,
         };
         
         // Add wallets to manager

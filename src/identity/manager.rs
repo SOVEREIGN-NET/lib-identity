@@ -64,17 +64,24 @@ impl IdentityManager {
         economic_model: &mut EconomicModel,
     ) -> Result<CitizenshipResult> {
         // Generate quantum-resistant key pair
-        let (private_key, public_key) = self.generate_pq_keypair().await?;
-        
+        let (private_key_bytes, public_key) = self.generate_pq_keypair().await?;
+
+        // Wrap in PrivateKey struct
+        let private_key = lib_crypto::PrivateKey {
+            dilithium_sk: private_key_bytes.clone(),
+            kyber_sk: vec![],  // Not used in current implementation
+            master_seed: vec![],  // Derived separately
+        };
+
         // Generate identity seed
         let mut seed = [0u8; 32];
         rand::thread_rng().fill_bytes(&mut seed);
-        
+
         // Create identity ID from public key
         let id = Hash::from_bytes(&blake3::hash(&public_key).as_bytes()[..32]);
-        
+
         // Generate ownership proof
-        let ownership_proof = self.generate_ownership_proof(&private_key, &public_key).await?;
+        let ownership_proof = self.generate_ownership_proof(&private_key_bytes, &public_key).await?;
         
         // Create primary wallets for citizen WITH seed phrases
         let mut wallet_manager = crate::wallets::WalletManager::new(id.clone());
@@ -101,38 +108,25 @@ impl IdentityManager {
         ).await?;
         
         // Create identity with citizen benefits
-        let identity = ZhtpIdentity {
-            id: id.clone(),
-            identity_type: IdentityType::Human,
-            public_key: public_key.clone(),
+        let mut identity = ZhtpIdentity::from_legacy_fields(
+            id.clone(),
+            IdentityType::Human,
+            public_key.clone(),
+            private_key.clone(),
+            "primary".to_string(),  // Default device name for new citizens
             ownership_proof,
-            credentials: HashMap::new(),
-            reputation: 500, // Citizens start with higher reputation
-            age: None,
-            access_level: AccessLevel::FullCitizen,
-            metadata: HashMap::new(),
-            private_data_id: Some(id.clone()),
             wallet_manager,
-            attestations: Vec::new(),
-            created_at: std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)?
-                .as_secs(),
-            last_active: std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)?
-                .as_secs(),
-            recovery_keys: vec![],
-            did_document_hash: None,
-            owner_identity_id: None,  // Humans don't have owners
-            reward_wallet_id: None,   // Humans don't need this (nodes do)
-            encrypted_master_seed: None,
-            next_wallet_index: 0,
-            password_hash: None,
-            master_seed_phrase: None,
-        };
+        )?;
+
+        // Set citizen-specific fields
+        identity.reputation = 500; // Citizens start with higher reputation
+        identity.access_level = AccessLevel::FullCitizen;
+        identity.citizenship_verified = true;
+        identity.dao_voting_power = 10; // Verified citizens get full voting power
         
         // Store private data
         let private_data = PrivateIdentityData::new(
-            private_key,
+            private_key_bytes,
             public_key.clone(),
             seed,
             recovery_options,
@@ -446,7 +440,7 @@ impl IdentityManager {
         
         // Generate public inputs (what can be verified publicly)
         let public_inputs = [
-            &identity.public_key,
+            identity.public_key.as_bytes().as_slice(),
             identity_id.0.as_slice(),
             &requirements.privacy_level.to_le_bytes()
         ].concat();
@@ -463,7 +457,7 @@ impl IdentityManager {
         
         // Create verification key from identity's public data
         let verification_key = lib_crypto::hash_blake3(&[
-            &identity.public_key,
+            identity.public_key.as_bytes().as_slice(),
             identity.created_at.to_le_bytes().as_slice(),
             identity.reputation.to_le_bytes().as_slice()
         ].concat());
@@ -519,12 +513,12 @@ impl IdentityManager {
         
         // Generate corresponding public key components
         let dilithium_pk = lib_crypto::hash_blake3(&[
-            &identity.public_key,
+            identity.public_key.as_bytes().as_slice(),
             b"dilithium".as_slice()
         ].concat()).to_vec();
-        
+
         let kyber_pk = lib_crypto::hash_blake3(&[
-            &identity.public_key,
+            identity.public_key.as_bytes().as_slice(),
             b"kyber".as_slice()
         ].concat()).to_vec();
         
@@ -563,41 +557,34 @@ impl IdentityManager {
         }
         
         // Derive identity from recovery phrase
-        let (identity_id, private_key, public_key, seed) = recovery_manager.restore_from_phrase(&phrase_words).await?;
-        
-        // Create identity structure
-        let identity = ZhtpIdentity {
-            id: identity_id.clone(),
-            identity_type: IdentityType::Human,
-            public_key: public_key.clone(),
-            ownership_proof: self.generate_ownership_proof(&private_key, &public_key).await?,
-            credentials: HashMap::new(),
-            reputation: 100, // Base reputation for imported identity
-            age: None,
-            access_level: AccessLevel::FullCitizen, // Can be upgraded after verification
-            metadata: HashMap::new(),
-            private_data_id: Some(identity_id.clone()),
-            wallet_manager: crate::wallets::WalletManager::new(identity_id.clone()),
-            attestations: Vec::new(),
-            created_at: std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)?
-                .as_secs(),
-            last_active: std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)?
-                .as_secs(),
-            recovery_keys: vec![],
-            did_document_hash: None,
-            owner_identity_id: None,  // Humans don't have owners
-            reward_wallet_id: None,   // Humans don't need this (nodes do)
-            encrypted_master_seed: None,
-            next_wallet_index: 0,
-            password_hash: None,
-            master_seed_phrase: Some(crate::recovery::RecoveryPhrase::from_words(phrase_words.clone())?),
+        let (identity_id, private_key_bytes, public_key, seed) = recovery_manager.restore_from_phrase(&phrase_words).await?;
+
+        // Wrap in PrivateKey struct
+        let private_key = lib_crypto::PrivateKey {
+            dilithium_sk: private_key_bytes.clone(),
+            kyber_sk: vec![],  // Not used in current implementation
+            master_seed: vec![],  // Derived separately
         };
+
+        // Create identity structure
+        let mut identity = ZhtpIdentity::from_legacy_fields(
+            identity_id.clone(),
+            IdentityType::Human,
+            public_key.clone(),
+            private_key.clone(),
+            "primary".to_string(),  // Default device name for imported identity
+            self.generate_ownership_proof(&private_key_bytes, &public_key).await?,
+            crate::wallets::WalletManager::new(identity_id.clone()),
+        )?;
+
+        // Set import-specific fields
+        identity.reputation = 100; // Base reputation for imported identity
+        identity.access_level = AccessLevel::FullCitizen;
+        identity.master_seed_phrase = Some(crate::recovery::RecoveryPhrase::from_words(phrase_words.clone())?);
         
         // Create private data
         let private_data = PrivateIdentityData::new(
-            private_key,
+            private_key_bytes,
             public_key,
             seed,
             vec![], // No additional recovery options for imported identities

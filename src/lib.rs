@@ -97,11 +97,13 @@ pub async fn create_user_identity_with_wallet(
     let identity_id = Hash::from_bytes(&public_key);
     
     // Create a Human or Organization identity (can own nodes and have wallets)
-    let mut identity = ZhtpIdentity {
-        id: identity_id.clone(),
-        identity_type: IdentityType::Human,  // User identity, not device
-        public_key: public_key.to_vec(),
-        ownership_proof: lib_proofs::ZeroKnowledgeProof {
+    let mut identity = ZhtpIdentity::from_legacy_fields(
+        identity_id.clone(),
+        IdentityType::Human,
+        public_key.to_vec(),
+        keypair.private_key.clone(),
+        "primary".to_string(),  // Default device name for user identity
+        lib_proofs::ZeroKnowledgeProof {
             proof_system: "UserIdentity".to_string(),
             proof_data: vec![0u8; 32],
             public_inputs: public_key.to_vec(),
@@ -109,32 +111,16 @@ pub async fn create_user_identity_with_wallet(
             plonky2_proof: None,
             proof: vec![],
         },
-        credentials: std::collections::HashMap::new(),
-        reputation: 100,
-        age: None,
-        access_level: AccessLevel::FullCitizen,
-        metadata: std::collections::HashMap::from([(
-            "user_name".to_string(),
-            user_name.clone(),
-        )]),
-        private_data_id: Some(identity_id.clone()),
-        wallet_manager: WalletManager::new(identity_id.clone()),
-        attestations: Vec::new(),
-        created_at: std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)?
-            .as_secs(),
-        last_active: std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)?
-            .as_secs(),
-        recovery_keys: vec![],
-        did_document_hash: None,
-        owner_identity_id: None,     // Users don't have owners
-        reward_wallet_id: None,       // Users don't need this (nodes do)
-        encrypted_master_seed: None,
-        next_wallet_index: 0,
-        password_hash: None,
-        master_seed_phrase: None,
-    };
+        WalletManager::new(identity_id.clone()),
+    )?;
+
+    // Set user-specific fields
+    identity.reputation = 100;
+    identity.access_level = AccessLevel::FullCitizen;
+    identity.metadata = std::collections::HashMap::from([(
+        "user_name".to_string(),
+        user_name.clone(),
+    )]);
     
     // Create PRIMARY wallet (main wallet for transactions and node rewards)
     let (primary_wallet_id, seed_phrase_struct) = identity.wallet_manager.create_wallet_with_seed_phrase(
@@ -221,11 +207,13 @@ pub async fn create_node_device_identity(
     let node_identity_id = Hash::from_bytes(&public_key);
     
     // Create a Device identity (for DHT/networking, owned by user)
-    let node_identity = ZhtpIdentity {
-        id: node_identity_id.clone(),
-        identity_type: IdentityType::Device,  // Device/node identity
-        public_key: public_key.to_vec(),
-        ownership_proof: lib_proofs::ZeroKnowledgeProof {
+    let mut node_identity = ZhtpIdentity::from_legacy_fields(
+        node_identity_id.clone(),
+        IdentityType::Device,
+        public_key.to_vec(),
+        keypair.private_key.clone(),
+        node_name.clone(),  // Use node name as device name
+        lib_proofs::ZeroKnowledgeProof {
             proof_system: "NodeDevice".to_string(),
             proof_data: vec![0u8; 32],
             public_inputs: public_key.to_vec(),
@@ -233,32 +221,18 @@ pub async fn create_node_device_identity(
             plonky2_proof: None,
             proof: vec![],
         },
-        credentials: std::collections::HashMap::new(),
-        reputation: 100,
-        age: None,
-        access_level: AccessLevel::FullCitizen,
-        metadata: std::collections::HashMap::from([
-            ("node_name".to_string(), node_name.clone()),
-            ("owner_identity".to_string(), hex::encode(&owner_identity_id.0)),
-        ]),
-        private_data_id: Some(node_identity_id.clone()),
-        wallet_manager: WalletManager::new(node_identity_id.clone()),  // Empty wallet manager
-        attestations: Vec::new(),
-        created_at: std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)?
-            .as_secs(),
-        last_active: std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)?
-            .as_secs(),
-        recovery_keys: vec![],
-        did_document_hash: None,
-        owner_identity_id: Some(owner_identity_id.clone()),  // Owned by user
-        reward_wallet_id: Some(reward_wallet_id),     // Rewards go here
-        encrypted_master_seed: None,
-        next_wallet_index: 0,
-        password_hash: None,
-        master_seed_phrase: None,
-    };
+        WalletManager::new(node_identity_id.clone()),
+    )?;
+
+    // Set device-specific fields
+    node_identity.reputation = 100;
+    node_identity.access_level = AccessLevel::FullCitizen;
+    node_identity.metadata = std::collections::HashMap::from([
+        ("node_name".to_string(), node_name.clone()),
+        ("owner_identity".to_string(), hex::encode(&owner_identity_id.0)),
+    ]);
+    node_identity.owner_identity_id = Some(owner_identity_id.clone());
+    node_identity.reward_wallet_id = Some(reward_wallet_id);
     
     // Store the node identity
     let mut manager = IdentityManager::new();

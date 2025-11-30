@@ -40,6 +40,8 @@ assert!(manager.verify_age_requirement(&proof, 18).await?);
 
 ## Architecture
 
+**Seed-Anchored Identity**: This library implements a seed-based deterministic identity model where the cryptographic seed is the root of trust. See [ADR-0001](docs/adr/0001-seed-anchored-identity.md) for the complete architecture decision and rationale.
+
 ```
 src/
 ├── types/              # Core identity types and structures

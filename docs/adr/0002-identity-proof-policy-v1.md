@@ -7,7 +7,7 @@
 2025-11-30
 
 ## Status
-**Proposed** → Pending Review → Accepted
+**Proposed** → 
 
 ## Context
 

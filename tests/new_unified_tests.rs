@@ -156,11 +156,11 @@ fn given_different_seeds_when_called_then_outputs_are_different() {
 ///       Then generates random seed and creates valid identity
 #[test]
 fn given_no_seed_when_called_then_generates_random_seed() {
-    // Given/When - no seed provided
+    // Given/When - no seed provided (but age/jurisdiction are required)
     let identity = ZhtpIdentity::new_unified(
         IdentityType::Human,
-        None,
-        None,
+        Some(25),  // Age required for credential derivation
+        Some("US".to_string()),  // Jurisdiction required for credential derivation
         "device",
         None,  // No seed - should generate random
     ).expect("Should succeed with random seed");
@@ -206,8 +206,8 @@ fn given_primary_device_when_new_unified_creates_identity_then_device_mapping_co
 fn test_did_format_is_valid() {
     let identity = ZhtpIdentity::new_unified(
         IdentityType::Human,
-        None,
-        None,
+        Some(30),  // Age required
+        Some("CA".to_string()),  // Jurisdiction required
         "test-device",
         None,
     ).expect("new_unified should succeed");
@@ -249,8 +249,8 @@ fn test_all_secrets_meet_size_requirements() {
 fn test_citizenship_defaults_for_new_unified() {
     let identity = ZhtpIdentity::new_unified(
         IdentityType::Human,
-        None,
-        None,
+        Some(25),  // Age required
+        Some("US".to_string()),  // Jurisdiction required
         "device",
         None,
     ).expect("new_unified should succeed");
@@ -266,8 +266,8 @@ fn test_citizenship_defaults_for_new_unified() {
 fn test_creates_real_pqc_keypair() {
     let identity = ZhtpIdentity::new_unified(
         IdentityType::Human,
-        None,
-        None,
+        Some(25),  // Age required
+        Some("US".to_string()),  // Jurisdiction required
         "device",
         None,
     ).expect("new_unified should succeed");

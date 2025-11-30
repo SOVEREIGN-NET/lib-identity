@@ -240,31 +240,137 @@ impl ZhtpIdentity {
         })
     }
 
-    /// Create a new ZHTP identity with auto-generated PQC keypair
+    /// Create a new ZHTP identity with seed-anchored deterministic derivation
     ///
-    /// This is a simplified constructor that generates a real post-quantum cryptographic
-    /// keypair internally and derives all identity fields deterministically.
+    /// This constructor implements seed-anchored identity where the seed is the root
+    /// of trust, not PQC keypairs. All identity fields (DID, secrets, NodeIds) derive
+    /// deterministically from the seed, while PQC keypairs are generated randomly
+    /// and attached as capabilities.
+    ///
+    /// # Architecture
+    /// ```text
+    /// seed (root of trust)
+    ///  ├─ DID = did:zhtp:{Blake3(seed || "ZHTP_DID_V1")}
+    ///  ├─ IdentityId = Blake3(DID)
+    ///  ├─ zk_identity_secret = Blake3(seed || "ZHTP_ZK_SECRET_V1")
+    ///  ├─ wallet_master_seed = XOF(seed || "ZHTP_WALLET_SEED_V1")
+    ///  ├─ dao_member_id = Blake3("DAO:" || DID)
+    ///  ├─ NodeIds = f(DID, device)
+    ///  └─ PQC keypairs (random, attached, rotatable)
+    /// ```
     ///
     /// # Arguments
     /// * `identity_type` - Type of identity (Human, Organization, etc.)
     /// * `age` - Optional age for credential derivation (defaults to 25)
     /// * `jurisdiction` - Optional jurisdiction code (defaults to "US")
     /// * `primary_device` - Primary device identifier
+    /// * `seed` - Optional 64-byte seed. If None, generates random seed.
     ///
     /// # Returns
-    /// Fully initialized ZhtpIdentity with real PQC keypair and all derived fields
+    /// Fully initialized ZhtpIdentity with deterministic fields from seed
+    ///
+    /// # Determinism
+    /// Same seed → same DID, same secrets, same NodeIds (always)
+    /// PQC keypairs are random (by design, pqcrypto-* limitation)
     pub fn new_unified(
         identity_type: IdentityType,
         age: Option<u64>,
         jurisdiction: Option<String>,
         primary_device: &str,
+        seed: Option<[u8; 64]>,
     ) -> Result<Self> {
-        // Step 1: Generate real PQC keypair using lib-crypto
+        // Step 1: Generate or use provided seed
+        let seed = match seed {
+            Some(s) => s,
+            None => lib_crypto::generate_identity_seed()?,
+        };
+
+        // Step 2: Derive DID from seed (seed-anchored, not from PQC key_id)
+        let did = Self::derive_did_from_seed(&seed)?;
+
+        // Step 3: Derive IdentityId by hashing the DID
+        let id = Hash::from_bytes(&lib_crypto::hash_blake3(did.as_bytes()).to_vec());
+
+        // Step 4: Generate primary NodeId from DID + device
+        let node_id = NodeId::from_did_device(&did, primary_device)?;
+
+        // Step 5: Derive zk_identity_secret from seed
+        let zk_identity_secret = Self::derive_zk_secret_from_seed(&seed)?;
+
+        // Step 6: Derive zk_credential_hash from zk_secret + age + jurisdiction
+        let age_val = age.unwrap_or(25);
+        let juris_val = jurisdiction.as_deref().unwrap_or("US");
+        let zk_credential_hash = Self::derive_credential_hash(
+            &zk_identity_secret,
+            age_val,
+            juris_val
+        )?;
+
+        // Step 7: Derive wallet_master_seed from seed (64 bytes via XOF)
+        let wallet_master_seed = Self::derive_wallet_seed_from_seed(&seed)?;
+
+        // Step 8: Derive dao_member_id from DID
+        let dao_member_id = Self::derive_dao_member_id(&did)?;
+
+        // Step 9: Generate random PQC keypairs (attached, not foundational)
         let keypair = lib_crypto::KeyPair::generate()
             .map_err(|e| anyhow!("Failed to generate PQC keypair: {}", e))?;
 
-        // TODO: Steps 2-13 will be implemented in next block
-        todo!("Complete implementation of steps 2-13")
+        // Step 10: Initialize WalletManager
+        let wallet_manager = crate::wallets::WalletManager::new(id.clone());
+
+        // Step 11: Initialize device_node_ids HashMap with primary device
+        let mut device_node_ids = HashMap::new();
+        device_node_ids.insert(primary_device.to_string(), node_id);
+
+        // Step 12: Set citizenship_verified=false, dao_voting_power=1 (unverified)
+        let citizenship_verified = false;
+        let dao_voting_power = 1;
+
+        // Step 13: Generate placeholder ownership_proof
+        let ownership_proof = ZeroKnowledgeProof::default();
+
+        let current_time = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)?
+            .as_secs();
+
+        // Step 14: Return fully initialized ZhtpIdentity
+        Ok(ZhtpIdentity {
+            id: id.clone(),
+            identity_type,
+            did,
+            public_key: keypair.public_key,
+            private_key: Some(keypair.private_key),
+            node_id,
+            device_node_ids,
+            primary_device: primary_device.to_string(),
+            ownership_proof,
+            credentials: HashMap::new(),
+            reputation: 0,
+            age: Some(age_val),
+            access_level: AccessLevel::default(),
+            metadata: HashMap::new(),
+            private_data_id: Some(id),
+            wallet_manager,
+            attestations: Vec::new(),
+            created_at: current_time,
+            last_active: current_time,
+            recovery_keys: Vec::new(),
+            did_document_hash: None,
+            owner_identity_id: None,
+            reward_wallet_id: None,
+            encrypted_master_seed: None,
+            next_wallet_index: 0,
+            password_hash: None,
+            master_seed_phrase: None,
+            zk_identity_secret,
+            zk_credential_hash,
+            wallet_master_seed,
+            dao_member_id,
+            dao_voting_power,
+            citizenship_verified,
+            jurisdiction: Some(juris_val.to_string()),
+        })
     }
 
     /// Generate canonical DID from PublicKey key_id
@@ -316,6 +422,36 @@ impl ZhtpIdentity {
     fn derive_dao_member_id(did: &str) -> Result<String> {
         let hash = lib_crypto::hash_blake3(format!("DAO:{}", did).as_bytes());
         Ok(hex::encode(hash))
+    }
+
+    // ========== SEED-ANCHORED DERIVATION FUNCTIONS ==========
+    // These functions implement the seed-anchored identity architecture
+    // where seed is the root of trust, not PQC keypairs.
+
+    /// Derive DID from seed (seed-anchored, not from PQC key_id)
+    /// Per seed-anchored architecture: DID = did:zhtp:{Blake3(seed || "ZHTP_DID_V1")}
+    fn derive_did_from_seed(seed: &[u8; 64]) -> Result<String> {
+        let hash = lib_crypto::hash_blake3(&[seed.as_slice(), b"ZHTP_DID_V1"].concat());
+        Ok(format!("did:zhtp:{}", hex::encode(hash)))
+    }
+
+    /// Derive ZK identity secret from seed (not from private key)
+    /// Per seed-anchored architecture: Blake3(seed || "ZHTP_ZK_SECRET_V1")
+    fn derive_zk_secret_from_seed(seed: &[u8; 64]) -> Result<[u8; 32]> {
+        let hash = lib_crypto::hash_blake3(&[seed.as_slice(), b"ZHTP_ZK_SECRET_V1"].concat());
+        Ok(hash)
+    }
+
+    /// Derive wallet master seed from identity seed (not from private key)
+    /// Per seed-anchored architecture: XOF(seed || "ZHTP_WALLET_SEED_V1") [64 bytes]
+    fn derive_wallet_seed_from_seed(seed: &[u8; 64]) -> Result<[u8; 64]> {
+        let mut output = [0u8; 64];
+        let mut hasher = blake3::Hasher::new();
+        hasher.update(seed);
+        hasher.update(b"ZHTP_WALLET_SEED_V1");
+        let mut reader = hasher.finalize_xof();
+        reader.fill(&mut output);
+        Ok(output)
     }
 
     /// Convert jurisdiction to numeric code (ISO 3166-1)

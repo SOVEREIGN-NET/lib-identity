@@ -22,6 +22,7 @@ fn given_new_unified_called_when_construction_completes_then_identity_fully_init
         age,
         jurisdiction,
         primary_device,
+        None,  // Let it generate random seed
     );
 
     // Then
@@ -72,23 +73,25 @@ fn given_new_unified_called_when_construction_completes_then_identity_fully_init
     // (WalletManager structure verification depends on its API)
 }
 
-/// AC2: Given same inputs to new_unified()
-///      When called multiple times
-///      Then all outputs are deterministic (different keypairs → different outputs)
+/// AC2: Given same seed to new_unified()
+///      When called multiple times with the same seed
+///      Then all outputs are deterministic (same DID, same secrets)
 #[test]
-fn given_same_inputs_when_called_multiple_times_then_outputs_are_different() {
-    // Given
+fn given_same_seed_when_called_multiple_times_then_outputs_are_identical() {
+    // Given - use a fixed seed for determinism
+    let seed = [0x42u8; 64];
     let identity_type = IdentityType::Human;
     let age = Some(25u64);
     let jurisdiction = Some("CA".to_string());
     let primary_device = "phone";
 
-    // When - call twice with same inputs
+    // When - call twice with same seed
     let identity1 = ZhtpIdentity::new_unified(
         identity_type.clone(),
         age,
         jurisdiction.clone(),
         primary_device,
+        Some(seed),
     ).expect("First call should succeed");
 
     let identity2 = ZhtpIdentity::new_unified(
@@ -96,15 +99,77 @@ fn given_same_inputs_when_called_multiple_times_then_outputs_are_different() {
         age,
         jurisdiction,
         primary_device,
+        Some(seed),
     ).expect("Second call should succeed");
 
-    // Then - different keypairs should produce different outputs
-    assert_ne!(identity1.public_key.key_id, identity2.public_key.key_id,
-        "Different keypairs should have different key_ids");
+    // Then - same seed produces identical derived fields
+    assert_eq!(identity1.did, identity2.did,
+        "Same seed should produce same DID");
+    assert_eq!(identity1.id, identity2.id,
+        "Same seed should produce same IdentityId");
+    assert_eq!(identity1.zk_identity_secret, identity2.zk_identity_secret,
+        "Same seed should produce same zk_identity_secret");
+    assert_eq!(identity1.wallet_master_seed, identity2.wallet_master_seed,
+        "Same seed should produce same wallet_master_seed");
+    assert_eq!(identity1.dao_member_id, identity2.dao_member_id,
+        "Same seed should produce same dao_member_id");
+
+    // PQC keypairs are allowed to differ (they're random)
+    // This is by design - seed anchors identity, not PQC keys
+}
+
+/// AC2b: Given different seeds
+///       When new_unified() is called
+///       Then outputs are different
+#[test]
+fn given_different_seeds_when_called_then_outputs_are_different() {
+    // Given - two different seeds
+    let seed1 = [0x42u8; 64];
+    let seed2 = [0x43u8; 64];
+
+    // When
+    let identity1 = ZhtpIdentity::new_unified(
+        IdentityType::Human,
+        Some(25),
+        Some("US".to_string()),
+        "device",
+        Some(seed1),
+    ).expect("Should succeed");
+
+    let identity2 = ZhtpIdentity::new_unified(
+        IdentityType::Human,
+        Some(25),
+        Some("US".to_string()),
+        "device",
+        Some(seed2),
+    ).expect("Should succeed");
+
+    // Then - different seeds produce different identities
     assert_ne!(identity1.did, identity2.did,
-        "Different keypairs should produce different DIDs");
+        "Different seeds should produce different DIDs");
     assert_ne!(identity1.zk_identity_secret, identity2.zk_identity_secret,
-        "Different keypairs should produce different secrets");
+        "Different seeds should produce different secrets");
+}
+
+/// AC2c: Given no seed (None)
+///       When new_unified() is called
+///       Then generates random seed and creates valid identity
+#[test]
+fn given_no_seed_when_called_then_generates_random_seed() {
+    // Given/When - no seed provided
+    let identity = ZhtpIdentity::new_unified(
+        IdentityType::Human,
+        None,
+        None,
+        "device",
+        None,  // No seed - should generate random
+    ).expect("Should succeed with random seed");
+
+    // Then - identity is valid
+    assert!(identity.did.starts_with("did:zhtp:"),
+        "Should have valid DID");
+    assert_ne!(identity.zk_identity_secret, [0u8; 32],
+        "Should have non-zero secrets");
 }
 
 /// AC3: Given primary_device name
@@ -121,6 +186,7 @@ fn given_primary_device_when_new_unified_creates_identity_then_device_mapping_co
         Some(30),
         Some("US".to_string()),
         primary_device,
+        None,
     ).expect("new_unified should succeed");
 
     // Then
@@ -143,6 +209,7 @@ fn test_did_format_is_valid() {
         None,
         None,
         "test-device",
+        None,
     ).expect("new_unified should succeed");
 
     // DID format: "did:zhtp:{64 hex chars}"
@@ -166,6 +233,7 @@ fn test_all_secrets_meet_size_requirements() {
         Some(25),
         Some("GB".to_string()),
         "device",
+        None,
     ).expect("new_unified should succeed");
 
     assert_eq!(identity.zk_identity_secret.len(), 32,
@@ -184,6 +252,7 @@ fn test_citizenship_defaults_for_new_unified() {
         None,
         None,
         "device",
+        None,
     ).expect("new_unified should succeed");
 
     assert_eq!(identity.citizenship_verified, false,
@@ -200,6 +269,7 @@ fn test_creates_real_pqc_keypair() {
         None,
         None,
         "device",
+        None,
     ).expect("new_unified should succeed");
 
     // Verify Dilithium2 keypair sizes (expected: PK=1312, SK=2528)

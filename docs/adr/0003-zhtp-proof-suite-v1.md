@@ -1,7 +1,7 @@
-# ADR-0003: ZHTP Proof Suite V1
+# ADR-0003: ZHTP Proof Suite V1 - Complete Specification
 
 ## ADR Number
-0003
+0003 (supersedes and integrates ADR-0002)
 
 ## Date
 2025-11-30
@@ -11,9 +11,25 @@
 
 ## Context
 
-ZHTP is built on **seed-anchored identities**, **sovereign devices**, and a mix of **private peer interactions** and **public DAO-level governance**.
+ZHTP is built on **seed-anchored identities** (ADR-0001), **sovereign devices**, and a mix of **private peer interactions** and **public DAO-level governance**.
 
-To make this verifiable and future-proof, the network needs a **coherent suite of proofs** that cover:
+### The Problem
+
+The existing implementation treats `ZeroKnowledgeProof` as an ungoverned catch-all struct with:
+
+- **no versioning** - no `version` field, no way to track format changes
+- **no canonical schema** - 6 fields (`proof_system`, `proof_data`, `public_inputs`, `verification_key`, `plonky2_proof`, `proof`) with unclear semantics
+- **no registry** - no authoritative list of supported proof types
+- **no validation rules** - malformed proofs deserialize silently
+- **string-based dispatch** - `match proof.proof_system.as_str()` allows typos, returns `Ok(false)` for unknown types
+- **inconsistent usage across modules** - lib-proofs uses `ZkProofType` enum, lib-identity uses free-form strings
+- **no binding between deterministic identity and post-quantum keypairs** - seed-anchored DID exists separately from PQC keys with no cryptographic proof of ownership
+
+As a result, proofs are **fragile, unverifiable, incompatible across versions, and unsafe to evolve**.
+
+### The Solution
+
+To make the network verifiable and future-proof, ZHTP needs a **coherent suite of proofs** that cover:
 
 * identity and capabilities
 * proximity and device relations
@@ -22,27 +38,31 @@ To make this verifiable and future-proof, the network needs a **coherent suite o
 * public DAO transactions and voting
 * credentials and selective disclosure
 
-Previously (ADR-0002), we identified that `ZeroKnowledgeProof` was an ungoverned "bucket" with:
-- No versioning
-- No canonical schema
-- No registry
-- String-based dispatch
-- No binding between seed-anchored DID and PQC keypairs
-
-This ADR establishes the complete proof architecture for ZHTP V1.
+This ADR establishes both the **governance framework** and the **complete proof architecture** for ZHTP V1.
 
 ---
 
 ## Decision
 
-Adopt **ZHTP Proof Suite V1** as the canonical proof architecture, defining:
+Adopt **ZHTP Proof Suite V1** as the canonical proof architecture and governance policy, defining:
 
+### Governance Framework
+1. **Canonical proof envelope** - strict schema with required fields
+2. **Strict proof type governance** - enum-based, not stringly-typed
+3. **Versioning rules** - explicit version tracking for migration
+4. **Schema validation** - reject malformed proofs early
+5. **Rejection of unknown proof types** - error instead of silent failure
+6. **Proof Registry** - authoritative list of supported proof formats with validation rules
+7. **Canonical binary serialization** - CBOR instead of JSON
+8. **Deterministic ownership binding** - cryptographic proof linking DID to PQ signature key
+9. **Long-term upgrade and deprecation strategy** - safe evolution path
+
+### Concrete Specifications
 1. **13 proof types** covering identity, devices, network, SID economy, and DAO governance
 2. **Unified proof envelope** with versioning and type-safe dispatch
-3. **Proof registry** for validation and evolution
-4. **Public vs private classification** for each proof type
-5. **Canonical serialization** (CBOR, not JSON)
-6. **Clear verification rules** for each proof type
+3. **Public vs private classification** for each proof type
+4. **Clear verification rules** for each proof type
+5. **MVP subset definition** - which proofs ship first
 
 ---
 
